@@ -13,8 +13,8 @@ BINANCE_SOCKET_BASE = "wss://stream.binance.com:9443"
 BINANCE_SOCKET = BINANCE_SOCKET_BASE + "/ws/bnbbtc@kline_1m"
 
 RSI_PERIOD = 14
-RSI_OVERBOUGHT = 70
-RSI_OVERSOLD = 30
+RSI_OVERBOUGHT = 69
+RSI_OVERSOLD = 31
 TRADE_SYMBOL = "BNBBTC"
 TRADE_QUANTITY = 0.01
 
@@ -46,6 +46,10 @@ def order(symbol, side, order_type, quantity):
 
     print("Executing order...")
 
+    col_names = ["datetime_collected", "datetime", "price"]
+    row = [start_datetime, symbol, side, order_type, quantity]
+    append_data(f"../Trading CSVs/{TRADE_SYMBOL}_trades_log.csv", col_names, row)
+
     return True
 
 
@@ -66,16 +70,12 @@ def on_candle_close(closes_arr):
     # of the next candle - we must look at the previous price
     if len(closes_dict) >= 2:
         col_names = ["datetime_collected", "datetime", "price"]
-        row_raw = [start_datetime,
+        row = [start_datetime,
                     list(closes_dict.keys())[-2],
                     list(closes_dict.values())[-2]
                     ]
-        row = [str(x) for x in row_raw]
 
-        append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv",
-                    ", ".join(col_names),
-                    ", ".join(row)
-                    )
+        append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv", col_names, row)
     
         rsi_calc(closes_arr)
 
@@ -87,7 +87,7 @@ def rsi_calc(closes_arr):
     last_rsi = rsi[-1]
     print(f"All RSIs calculated so far: {rsi}")
 
-    if last_rsi > RSI_OVERBOUGHT:
+    if last_rsi >= RSI_OVERBOUGHT:
         if in_long_position:
             print("Sell!")
             order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY)
@@ -96,7 +96,7 @@ def rsi_calc(closes_arr):
         else:
             print("Overbought but nothing to do")
 
-    if last_rsi < RSI_OVERSOLD:
+    if last_rsi <= RSI_OVERSOLD:
         if in_long_position:
             print("Oversold but nothing to do")
         else:

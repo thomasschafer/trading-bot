@@ -3,4 +3,3 @@ pandas
 python-binance
 TA-Lib
 websocket_client
-json
