@@ -4,35 +4,56 @@ from datetime import datetime
 import websocket
 import json
 import talib
+from binance.client import Client
+from binance import enums
 from algo_utils import append_data
 
 
 BINANCE_SOCKET_BASE = "wss://stream.binance.com:9443"
-BINANCE_SOCKET = BINANCE_SOCKET_BASE + "/ws/ethusdt@kline_1m"
+BINANCE_SOCKET = BINANCE_SOCKET_BASE + "/ws/bnbbtc@kline_1m"
 
 RSI_PERIOD = 14
 RSI_OVERBOUGHT = 70
 RSI_OVERSOLD = 30
-TRADESYMBOL = "ETHUSDT"
+TRADE_SYMBOL = "BNBBTC"
 TRADE_QUANTITY = 0.01
 
+in_long_position = False
+start_datetime = str(datetime.now())
+closes_dict = {}
+cur_len_closes_dict = 0
 
+
+# Loading API key and secret, which are saved in an external file
 with open("../config/algo_config.json") as f:
     config_dict = json.load(f)
+
+client = Client(config_dict['api_key'], config_dict['api_sec'])
+
+
+def order(symbol, side, order_type, quantity):
+    # try:
+    #     print("Sending order")
+    #     order = client.create_order(symbol=symbol,
+    #                                 side=side,
+    #                                 type=order_type,
+    #                                 quantity=quantity)
+    #     print(order)
+    
+    # except Exception as e:
+    #     print("Order failed:", e)
+    #     return False
+
+    print("Executing order...")
+
+    return True
+
 
 def on_open(ws):
     print("Opened connection")
 
-x = np.array([1, 2, 3])
-
-
 def on_close(ws):
     print("Closed connection")
-
-
-start_datetime = str(datetime.now())
-closes_dict = {}
-cur_len_closes_dict = 0
 
 def on_candle_close(closes_arr):
     global closes_dict, cur_len_closes_dict
@@ -51,7 +72,7 @@ def on_candle_close(closes_arr):
                     ]
         row = [str(x) for x in row_raw]
 
-        append_data(f"../Trading CSVs/{TRADESYMBOL}_data.csv",
+        append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv",
                     ", ".join(col_names),
                     ", ".join(row)
                     )
@@ -60,17 +81,32 @@ def on_candle_close(closes_arr):
 
 
 def rsi_calc(closes_arr):    
+    global in_long_position
+
     rsi = talib.RSI(closes_arr, RSI_PERIOD)
     last_rsi = rsi[-1]
     print(f"All RSIs calculated so far: {rsi}")
 
     if last_rsi > RSI_OVERBOUGHT:
-        print("Sell!")
+        if in_long_position:
+            print("Sell!")
+            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY)
+            if order_succeeded:
+                in_long_position = False
+        else:
+            print("Overbought but nothing to do")
+
     if last_rsi < RSI_OVERSOLD:
-        print("Buy!")
+        if in_long_position:
+            print("Oversold but nothing to do")
+        else:
+            print("Buy!")
+            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY)
+            if order_succeeded:
+                in_long_position = True
 
 
-def on_new_message(message):
+def on_message_helper(message):
     global closes_dict, cur_len_closes_dict
     message_dict = json.loads(message)
 
@@ -85,19 +121,18 @@ def on_new_message(message):
 
     if len(closes_dict) > cur_len_closes_dict:
         closes_arr = np.array(list(closes_dict.values())[:-1])
-        print(closes_arr)
         on_candle_close(closes_arr)
 
         if len(closes_dict) >= RSI_PERIOD:
                 pass
 
-    print(f"{ticker} price at {ts}: {close_price}.")
+    print(f"{ticker} price at {ts}: {close_price}")
 
 
 def on_message(ws, message):
-    global closes_dict, cur_len_closes_dict, TRADESYMBOL, start_datetime
+    global closes_dict, cur_len_closes_dict, start_datetime
     try:
-        on_new_message(message)
+        on_message_helper(message)
 
     except Exception as e:
         print(e)
