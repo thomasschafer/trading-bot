@@ -13,8 +13,8 @@ BINANCE_SOCKET_BASE = "wss://stream.binance.com:9443"
 BINANCE_SOCKET = BINANCE_SOCKET_BASE + "/ws/bnbbtc@kline_1m"
 
 RSI_PERIOD = 14
-RSI_OVERBOUGHT = 69
-RSI_OVERSOLD = 31
+RSI_OVERBOUGHT = 63
+RSI_OVERSOLD = 37
 TRADE_SYMBOL = "BNBBTC"
 TRADE_QUANTITY = 0.3
 
@@ -32,17 +32,17 @@ client = Client(config_dict['api_key'], config_dict['api_sec'])
 
 
 def order(symbol, side, order_type, quantity, last_rsi):
-    # try:
-    #     print("Sending order")
-    #     order = client.create_order(symbol=symbol,
-    #                                 side=side,
-    #                                 type=order_type,
-    #                                 quantity=quantity)
-    #     print(order)
+    try:
+        print("Sending order")
+        order = client.create_order(symbol=symbol,
+                                    side=side,
+                                    type=order_type,
+                                    quantity=quantity)
+        print(order)
     
-    # except Exception as e:
-    #     print("Order failed:", e)
-    #     return False
+    except Exception as e:
+        print("Order failed:", e)
+        return False
 
     print("Executing order...")
 
@@ -64,7 +64,7 @@ def on_candle_close(closes_arr):
     
     cur_len_closes_dict = len(closes_dict)
 
-    print("Closing prices:", closes_arr)
+    print("\nClosing prices:", closes_arr, "\n")
 
     # We need to ensure we are not considering the most recent price, as this will be the beginning
     # of the next candle - we must look at the previous price
@@ -87,7 +87,7 @@ def rsi_calc(closes_arr):
 
     rsi = talib.RSI(closes_arr, RSI_PERIOD)
     last_rsi = rsi[-1]
-    print(f"All RSIs calculated so far: {rsi}")
+    print(f"All RSIs calculated so far: {rsi}\n")
 
     if last_rsi >= RSI_OVERBOUGHT:
         if in_long_position:
@@ -121,11 +121,11 @@ def on_message_helper(message):
 
     closes_dict[ts[:-3]] = close_price
 
+    print(f"{ticker} price at {ts}: {close_price}")
+
     if len(closes_dict) > cur_len_closes_dict:
         closes_arr = np.array(list(closes_dict.values())[:-1])
         on_candle_close(closes_arr)
-
-    print(f"{ticker} price at {ts}: {close_price}\n")
 
 
 def on_message(ws, message):
