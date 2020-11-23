@@ -9,18 +9,17 @@ from binance import enums
 from algo_utils import append_data
 
 
-TRADE_SYMBOL = "BNBBTC"
-ASSET_1 = "BNB" # Used for logging - asset bought
-ASSET_2 = "BTC" # Used for logging - asset sold to
+ASSET_1 = "BNB" # Ticker for asset bought
+ASSET_2 = "BTC" # Ticker for asset sold
+TRADE_SYMBOL = ASSET_1 + ASSET_2
+
 TRADE_QUANTITY = 0.3
 
 RSI_PERIOD = 14
 RSI_OVERBOUGHT = 63
 RSI_OVERSOLD = 37
 
-BINANCE_SOCKET_BASE = "wss://stream.binance.com:9443"
-BINANCE_SOCKET = BINANCE_SOCKET_BASE + "/ws/bnbbtc@kline_1m"
-
+BINANCE_SOCKET = f"wss://stream.binance.com:9443/ws/{TRADE_SYMBOL.lower()}@kline_1m"
 
 in_long_position = False
 start_datetime = str(datetime.now())
@@ -46,8 +45,9 @@ def order(symbol, side, order_type, quantity, last_rsi):
 
         # Logging executed price and quantity
         try:
-            order_formatted = order.replace("'", '"')
-            order_dict = json.loads(order_formatted)
+            # order_formatted = order.replace("'", '"')
+            # order_dict = json.loads(order_formatted)
+            order_dict = order
 
             actual_price = order_dict['fills'][0]['price']
             actual_quantity = order_dict['fills'][0]['qty']
@@ -64,7 +64,7 @@ def order(symbol, side, order_type, quantity, last_rsi):
             usd_price_1 = client.get_avg_price(symbol=f'{ASSET_1}USDT')['price']
             balance_2 = client.get_asset_balance(asset=ASSET_2)['free']
             usd_price_2 = client.get_avg_price(symbol=f'{ASSET_2}USDT')['price']
-            balance_usd = balance_1*usd_price_1 + balance_2*usd_price_2
+            balance_usd = float(balance_1)*float(usd_price_1) + float(balance_2)*float(usd_price_2)
         except Exception as e:
             balance_1 = "Error"
             usd_price_1 = "Error"
