@@ -9,16 +9,18 @@ from binance import enums
 from algo_utils import append_data
 
 
-BINANCE_SOCKET_BASE = "wss://stream.binance.com:9443"
-BINANCE_SOCKET = BINANCE_SOCKET_BASE + "/ws/bnbbtc@kline_1m"
+TRADE_SYMBOL = "BNBBTC"
+ASSET_1 = "BNB" # Used for logging - asset bought
+ASSET_2 = "BTC" # Used for logging - asset sold to
+TRADE_QUANTITY = 0.3
 
 RSI_PERIOD = 14
 RSI_OVERBOUGHT = 63
 RSI_OVERSOLD = 37
-TRADE_SYMBOL = "BNBBTC"
-ASSET_1 = "BNB"
-ASSET_2 = "BTC"
-TRADE_QUANTITY = 0.3
+
+BINANCE_SOCKET_BASE = "wss://stream.binance.com:9443"
+BINANCE_SOCKET = BINANCE_SOCKET_BASE + "/ws/bnbbtc@kline_1m"
+
 
 in_long_position = False
 start_datetime = str(datetime.now())
@@ -42,6 +44,7 @@ def order(symbol, side, order_type, quantity, last_rsi):
                                     quantity=quantity)
         print("Order successful:", order, "\n\n")
 
+        # Logging executed price and quantity
         try:
             order_formatted = order.replace("'", '"')
             order_dict = json.loads(order_formatted)
@@ -53,15 +56,16 @@ def order(symbol, side, order_type, quantity, last_rsi):
             actual_price = "Error"
             actual_quantity = "Error"
             commission = "Error"
-            print("Error in saving to logs:", e)
+            print("Error saving to logs:", e)
 
+        # Logging balances of both assets traded
         try:
-            balance_1 = client.get_asset_balance(asset=ASSET_1)
-            balance_2 = client.get_asset_balance(asset=ASSET_2)
+            balance_1 = client.get_asset_balance(asset=ASSET_1)['free']
+            balance_2 = client.get_asset_balance(asset=ASSET_2)['free']
         except Exception as e:
             balance_1 = "Error"
             balance_2 = "Error"
-            print("Error in saving to logs:", e)
+            print("Error saving to logs:", e)
 
 
         col_names = ["collection_started_datetime",
