@@ -61,10 +61,16 @@ def order(symbol, side, order_type, quantity, last_rsi):
         # Logging balances of both assets traded
         try:
             balance_1 = client.get_asset_balance(asset=ASSET_1)['free']
+            usd_price_1 = client.get_avg_price(symbol=f'{ASSET_1}USDT')['price']
             balance_2 = client.get_asset_balance(asset=ASSET_2)['free']
+            usd_price_2 = client.get_avg_price(symbol=f'{ASSET_2}USDT')['price']
+            balance_usd = balance_1*usd_price_1 + balance_2*usd_price_2
         except Exception as e:
             balance_1 = "Error"
+            usd_price_1 = "Error"
             balance_2 = "Error"
+            usd_price_2 = "Error"
+            balance_usd = "Error"
             print("Error saving to logs:", e)
 
 
@@ -80,6 +86,7 @@ def order(symbol, side, order_type, quantity, last_rsi):
                         "commission",
                         f"{ASSET_1}_balance",
                         f"{ASSET_2}_balance",
+                        "total_balance_usd",
                         "last RSI"]
         row = [start_datetime,
                 datetime.now(),
@@ -93,6 +100,7 @@ def order(symbol, side, order_type, quantity, last_rsi):
                 commission,
                 balance_1,
                 balance_2,
+                balance_usd,
                 last_rsi]
         append_data(f"../Trading CSVs/{TRADE_SYMBOL}_trades_log.csv", col_names, row)
     
