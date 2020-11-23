@@ -16,7 +16,7 @@ RSI_PERIOD = 14
 RSI_OVERBOUGHT = 69
 RSI_OVERSOLD = 31
 TRADE_SYMBOL = "BNBBTC"
-TRADE_QUANTITY = 0.01
+TRADE_QUANTITY = 0.3
 
 in_long_position = False
 start_datetime = str(datetime.now())
@@ -31,7 +31,7 @@ with open("../config/algo_config.json") as f:
 client = Client(config_dict['api_key'], config_dict['api_sec'])
 
 
-def order(symbol, side, order_type, quantity):
+def order(symbol, side, order_type, quantity, last_rsi):
     # try:
     #     print("Sending order")
     #     order = client.create_order(symbol=symbol,
@@ -46,8 +46,8 @@ def order(symbol, side, order_type, quantity):
 
     print("Executing order...")
 
-    col_names = ["datetime_collected", "datetime", "price"]
-    row = [start_datetime, symbol, side, order_type, quantity]
+    col_names = ["collected_datetime", "order_placed_datetime", "ticker", "side", "order_type", "quantity", "details"]
+    row = [start_datetime, datetime.now(), symbol, side, order_type, quantity, f"Last RSI: {last_rsi}"]
     append_data(f"../Trading CSVs/{TRADE_SYMBOL}_trades_log.csv", col_names, row)
 
     return True
@@ -76,8 +76,10 @@ def on_candle_close(closes_arr):
                     ]
 
         append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv", col_names, row)
-    
-        rsi_calc(closes_arr)
+
+        # RSI can only be calculated on the (RSI_PERIOD+1)th closing price
+        if len(closes_dict) >= RSI_PERIOD + 1:
+            rsi_calc(closes_arr)
 
 
 def rsi_calc(closes_arr):    
@@ -90,7 +92,7 @@ def rsi_calc(closes_arr):
     if last_rsi >= RSI_OVERBOUGHT:
         if in_long_position:
             print("Sell!")
-            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY)
+            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, last_rsi)
             if order_succeeded:
                 in_long_position = False
         else:
@@ -101,7 +103,7 @@ def rsi_calc(closes_arr):
             print("Oversold but nothing to do")
         else:
             print("Buy!")
-            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY)
+            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, last_rsi)
             if order_succeeded:
                 in_long_position = True
 
@@ -123,10 +125,7 @@ def on_message_helper(message):
         closes_arr = np.array(list(closes_dict.values())[:-1])
         on_candle_close(closes_arr)
 
-        if len(closes_dict) >= RSI_PERIOD:
-                pass
-
-    print(f"{ticker} price at {ts}: {close_price}")
+    print(f"{ticker} price at {ts}: {close_price}\n")
 
 
 def on_message(ws, message):
