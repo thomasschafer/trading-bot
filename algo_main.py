@@ -16,6 +16,8 @@ RSI_PERIOD = 14
 RSI_OVERBOUGHT = 63
 RSI_OVERSOLD = 37
 TRADE_SYMBOL = "BNBBTC"
+ASSET_1 = "BNB"
+ASSET_2 = "BTC"
 TRADE_QUANTITY = 0.3
 
 in_long_position = False
@@ -38,17 +40,61 @@ def order(symbol, side, order_type, quantity, last_rsi):
                                     side=side,
                                     type=order_type,
                                     quantity=quantity)
-        print(order)
+        print("Order successful:", order, "\n\n")
+
+        try:
+            order_formatted = order.replace("'", '"')
+            order_dict = json.loads(order_formatted)
+
+            actual_price = order_dict['fills'][0]['price']
+            actual_quantity = order_dict['fills'][0]['qty']
+            commission = order_dict['fills'][0]['commission']
+        except Exception as e:
+            actual_price = "Error"
+            actual_quantity = "Error"
+            commission = "Error"
+            print("Error in saving to logs:", e)
+
+        try:
+            balance_1 = client.get_asset_balance(asset=ASSET_1)
+            balance_2 = client.get_asset_balance(asset=ASSET_2)
+        except Exception as e:
+            balance_1 = "Error"
+            balance_2 = "Error"
+            print("Error in saving to logs:", e)
+
+
+        col_names = ["collection_started_datetime",
+                        "order_placed_datetime",
+                        "ticker",
+                        "side", 
+                        "order_type",
+                        "quantity_attempted",
+                        "expected_price",
+                        "actual_price",
+                        "actual_quantity",
+                        "commission",
+                        f"{ASSET_1}_balance",
+                        f"{ASSET_2}_balance",
+                        "last RSI"]
+        row = [start_datetime,
+                datetime.now(),
+                symbol,
+                side,
+                order_type,
+                quantity,
+                list(closes_dict.values())[-2],
+                actual_price,
+                actual_quantity,
+                commission,
+                balance_1,
+                balance_2,
+                last_rsi]
+        append_data(f"../Trading CSVs/{TRADE_SYMBOL}_trades_log.csv", col_names, row)
     
     except Exception as e:
-        print("Order failed:", e)
+        print("Order failed:", e, "\n\n")
         return False
-
-    print("Executing order...")
-
-    col_names = ["collected_datetime", "order_placed_datetime", "ticker", "side", "order_type", "quantity", "details"]
-    row = [start_datetime, datetime.now(), symbol, side, order_type, quantity, f"Last RSI: {last_rsi}"]
-    append_data(f"../Trading CSVs/{TRADE_SYMBOL}_trades_log.csv", col_names, row)
 
     return True
 
