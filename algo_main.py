@@ -41,7 +41,6 @@ def on_open(ws):
 def on_close(ws):
     print("Closed connection")
 
-
 def on_message(ws, message):
     global cur_closes_dict_len
     try:
@@ -49,6 +48,7 @@ def on_message(ws, message):
 
     except Exception as e:
         print(e)
+
 
 def on_message_helper(message):
     global cur_closes_dict_len
@@ -90,7 +90,7 @@ def on_candle_close(closes_arr):
         append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv", col_names, row)
 
         # RSI can only be calculated on the (RSI_PERIOD+1)th closing price
-        if len(closes_dict) >= RSI_PERIOD + 1: #####+2
+        if len(closes_arr) >= RSI_PERIOD + 1: #####+2
             consider_trade(closes_arr)
 
 
@@ -98,21 +98,21 @@ def consider_trade(closes_arr):
     global in_long_position
 
     rsi = talib.RSI(closes_arr, RSI_PERIOD)
-    last_rsi = rsi[-1] ######-2
+    last_rsi = rsi[-2]
     print(f"All RSIs calculated so far: {rsi}\n")
 
-    if last_rsi >= RSI_OVERBOUGHT: #####and closes_arr[-2] >= closes_arr[-3]
+    if (last_rsi >= RSI_OVERBOUGHT) and (closes_arr[-1] < closes_arr[-2]):
         if in_long_position:
             print("Attempting to sell...")
             order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr, last_rsi)
             if order_succeeded:
                 in_long_position = False
         else:
-            print("Overbought but not in long position\n")
+            print("Selling opportunity, but not in long position\n")
 
-    if last_rsi <= RSI_OVERSOLD: #####and closes_arr[-2] <= closes_arr[-3]
+    if (last_rsi <= RSI_OVERSOLD) and (closes_arr[-1] > closes_arr[-2]):
         if in_long_position:
-            print("Oversold but already in a position\n")
+            print("Buying opportunity, but already in a position\n")
         else:
             print("Attempting to buy...")
             order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr, last_rsi)
