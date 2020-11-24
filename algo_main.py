@@ -13,7 +13,7 @@ ASSET_1 = "BNB" # Ticker for asset bought
 ASSET_2 = "BTC" # Ticker for asset sold
 TRADE_SYMBOL = ASSET_1 + ASSET_2
 
-TRADE_QUANTITY = 0.3
+TRADE_QUANTITY = 0.5
 
 RSI_PERIOD = 14
 RSI_OVERBOUGHT = 63
@@ -45,13 +45,9 @@ def order(symbol, side, order_type, quantity, last_rsi):
 
         # Logging executed price and quantity
         try:
-            # order_formatted = order.replace("'", '"')
-            # order_dict = json.loads(order_formatted)
-            order_dict = order
-
-            actual_price = order_dict['fills'][0]['price']
-            actual_quantity = order_dict['fills'][0]['qty']
-            commission = order_dict['fills'][0]['commission']
+            actual_price = order['fills'][0]['price']
+            actual_quantity = order['fills'][0]['qty']
+            commission = order['fills'][0]['commission']
         except Exception as e:
             actual_price = "Error"
             actual_quantity = "Error"
