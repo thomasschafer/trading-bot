@@ -4,8 +4,8 @@ def append_data(csv_path, col_names, row_to_append):
     
     row = [str(x) for x in row_to_append]
 
-    col_names_str = ", ".join(col_names)
-    row_str = ", ".join(row)
+    col_names_str = ",".join(col_names)
+    row_str = ",".join(row)
     
     path_obj = Path(csv_path)
 

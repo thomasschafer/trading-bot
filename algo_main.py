@@ -49,9 +49,9 @@ def order(symbol, side, order_type, quantity, last_rsi):
             actual_quantity = order['fills'][0]['qty']
             commission = order['fills'][0]['commission']
         except Exception as e:
-            actual_price = "Error"
-            actual_quantity = "Error"
-            commission = "Error"
+            actual_price = ""
+            actual_quantity = ""
+            commission = ""
             print("Error saving to logs:", e)
 
         # Logging balances of both assets traded
@@ -62,11 +62,11 @@ def order(symbol, side, order_type, quantity, last_rsi):
             usd_price_2 = client.get_avg_price(symbol=f'{ASSET_2}USDT')['price']
             balance_usd = float(balance_1)*float(usd_price_1) + float(balance_2)*float(usd_price_2)
         except Exception as e:
-            balance_1 = "Error"
-            usd_price_1 = "Error"
-            balance_2 = "Error"
-            usd_price_2 = "Error"
-            balance_usd = "Error"
+            balance_1 = ""
+            usd_price_1 = ""
+            balance_2 = ""
+            usd_price_2 = ""
+            balance_usd = ""
             print("Error saving to logs:", e)
 
 
