@@ -21,10 +21,11 @@ RSI_OVERSOLD = 37
 
 BINANCE_SOCKET = f"wss://stream.binance.com:9443/ws/{TRADE_SYMBOL.lower()}@kline_1m"
 
+START_DATETIME = str(datetime.now())
+
 in_long_position = False
-start_datetime = str(datetime.now())
 closes_dict = {}
-cur_len_closes_dict = 0
+cur_closes_dict_len = len(closes_dict)
 
 
 # Loading API key and secret, which are saved in an external file
@@ -42,7 +43,7 @@ def on_close(ws):
 
 
 def on_message(ws, message):
-    global closes_dict, cur_len_closes_dict, start_datetime
+    global cur_closes_dict_len
     try:
         on_message_helper(message)
 
@@ -50,7 +51,7 @@ def on_message(ws, message):
         print(e)
 
 def on_message_helper(message):
-    global closes_dict, cur_len_closes_dict
+    global cur_closes_dict_len
     message_dict = json.loads(message)
 
     ticker = message_dict['s']
@@ -64,16 +65,16 @@ def on_message_helper(message):
 
     print(f"{ticker} price at {ts}: {close_price}")
 
-    if len(closes_dict) > cur_len_closes_dict:
+    if len(closes_dict) > cur_closes_dict_len:
         closes_arr = np.array(list(closes_dict.values())[:-1])
         on_candle_close(closes_arr)
 
 
 
 def on_candle_close(closes_arr):
-    global closes_dict, cur_len_closes_dict
+    global cur_closes_dict_len
     
-    cur_len_closes_dict = len(closes_dict)
+    cur_closes_dict_len = len(closes_dict)
 
     print("\nClosing prices:", closes_arr, "\n")
 
@@ -81,7 +82,7 @@ def on_candle_close(closes_arr):
     # of the next candle - we must look at the previous price
     if len(closes_dict) >= 2:
         col_names = ["datetime_collected", "datetime", "price"]
-        row = [start_datetime,
+        row = [START_DATETIME,
                     list(closes_dict.keys())[-2],
                     list(closes_dict.values())[-2]
                     ]
@@ -89,36 +90,36 @@ def on_candle_close(closes_arr):
         append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv", col_names, row)
 
         # RSI can only be calculated on the (RSI_PERIOD+1)th closing price
-        if len(closes_dict) >= RSI_PERIOD + 1:
-            rsi_calc(closes_arr)
+        if len(closes_dict) >= RSI_PERIOD + 1: #####+2
+            consider_trade(closes_arr)
 
 
-def rsi_calc(closes_arr):    
+def consider_trade(closes_arr):    
     global in_long_position
 
     rsi = talib.RSI(closes_arr, RSI_PERIOD)
-    last_rsi = rsi[-1]
+    last_rsi = rsi[-1] ######-2
     print(f"All RSIs calculated so far: {rsi}\n")
 
-    if last_rsi >= RSI_OVERBOUGHT:
+    if last_rsi >= RSI_OVERBOUGHT: #####and closes_arr[-2] >= closes_arr[-3]
         if in_long_position:
-            print("Sell!")
-            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, last_rsi)
+            print("Attempting to sell...")
+            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr, last_rsi)
             if order_succeeded:
                 in_long_position = False
         else:
-            print("Overbought but nothing to do")
+            print("Overbought but not in long position\n")
 
-    if last_rsi <= RSI_OVERSOLD:
+    if last_rsi <= RSI_OVERSOLD: #####and closes_arr[-2] <= closes_arr[-3]
         if in_long_position:
-            print("Oversold but nothing to do")
+            print("Oversold but already in a position\n")
         else:
-            print("Buy!")
-            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, last_rsi)
+            print("Attempting to buy...")
+            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr, last_rsi)
             if order_succeeded:
                 in_long_position = True
 
-def order(symbol, side, order_type, quantity, last_rsi):
+def order(symbol, side, order_type, quantity, closes_arr, last_rsi):
     try:
         print("Sending order")
         order = client.create_order(symbol=symbol,
@@ -175,13 +176,13 @@ def order(symbol, side, order_type, quantity, last_rsi):
                         "total_balance_usd",
                         "total_balance_btc",
                         "last RSI"]
-        row = [start_datetime,
+        row = [START_DATETIME,
                 datetime.now(),
                 symbol,
                 side,
                 order_type,
                 quantity,
-                list(closes_dict.values())[-2],
+                closes_arr[-2],
                 actual_price,
                 actual_quantity,
                 commission,
