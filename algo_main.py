@@ -34,84 +34,41 @@ with open("../config/algo_config.json") as f:
 client = Client(config_dict['api_key'], config_dict['api_sec'])
 
 
-def order(symbol, side, order_type, quantity, last_rsi):
-    try:
-        print("Sending order")
-        order = client.create_order(symbol=symbol,
-                                    side=side,
-                                    type=order_type,
-                                    quantity=quantity)
-        print("Order successful:", order, "\n\n")
-
-        # Logging executed price and quantity
-        try:
-            actual_price = order['fills'][0]['price']
-            actual_quantity = order['fills'][0]['qty']
-            commission = order['fills'][0]['commission']
-        except Exception as e:
-            actual_price = ""
-            actual_quantity = ""
-            commission = ""
-            print("Error saving to logs:", e)
-
-        # Logging balances of both assets traded
-        try:
-            balance_1 = client.get_asset_balance(asset=ASSET_1)['free']
-            usd_price_1 = client.get_avg_price(symbol=f'{ASSET_1}USDT')['price']
-            balance_2 = client.get_asset_balance(asset=ASSET_2)['free']
-            usd_price_2 = client.get_avg_price(symbol=f'{ASSET_2}USDT')['price']
-            balance_usd = float(balance_1)*float(usd_price_1) + float(balance_2)*float(usd_price_2)
-        except Exception as e:
-            balance_1 = ""
-            usd_price_1 = ""
-            balance_2 = ""
-            usd_price_2 = ""
-            balance_usd = ""
-            print("Error saving to logs:", e)
-
-
-        col_names = ["collection_started_datetime",
-                        "order_placed_datetime",
-                        "ticker",
-                        "side", 
-                        "order_type",
-                        "quantity_attempted",
-                        "expected_price",
-                        "actual_price",
-                        "actual_quantity",
-                        "commission",
-                        f"{ASSET_1}_balance",
-                        f"{ASSET_2}_balance",
-                        "total_balance_usd",
-                        "last RSI"]
-        row = [start_datetime,
-                datetime.now(),
-                symbol,
-                side,
-                order_type,
-                quantity,
-                list(closes_dict.values())[-2],
-                actual_price,
-                actual_quantity,
-                commission,
-                balance_1,
-                balance_2,
-                balance_usd,
-                last_rsi]
-        append_data(f"../Trading CSVs/{TRADE_SYMBOL}_trades_log.csv", col_names, row)
-    
-    except Exception as e:
-        print("Order failed:", e, "\n\n")
-        return False
-
-    return True
-
-
 def on_open(ws):
     print("Opened connection")
 
 def on_close(ws):
     print("Closed connection")
+
+
+def on_message(ws, message):
+    global closes_dict, cur_len_closes_dict, start_datetime
+    try:
+        on_message_helper(message)
+
+    except Exception as e:
+        print(e)
+
+def on_message_helper(message):
+    global closes_dict, cur_len_closes_dict
+    message_dict = json.loads(message)
+
+    ticker = message_dict['s']
+
+    unix_ts = int(message_dict['E'])/1000
+    ts = datetime.utcfromtimestamp(unix_ts).strftime('%Y-%m-%d %H:%M:%S')
+
+    close_price = float(message_dict['k']['c'])
+
+    closes_dict[ts[:-3]] = close_price
+
+    print(f"{ticker} price at {ts}: {close_price}")
+
+    if len(closes_dict) > cur_len_closes_dict:
+        closes_arr = np.array(list(closes_dict.values())[:-1])
+        on_candle_close(closes_arr)
+
+
 
 def on_candle_close(closes_arr):
     global closes_dict, cur_len_closes_dict
@@ -161,34 +118,85 @@ def rsi_calc(closes_arr):
             if order_succeeded:
                 in_long_position = True
 
-
-def on_message_helper(message):
-    global closes_dict, cur_len_closes_dict
-    message_dict = json.loads(message)
-
-    ticker = message_dict['s']
-
-    unix_ts = int(message_dict['E'])/1000
-    ts = datetime.utcfromtimestamp(unix_ts).strftime('%Y-%m-%d %H:%M:%S')
-
-    close_price = float(message_dict['k']['c'])
-
-    closes_dict[ts[:-3]] = close_price
-
-    print(f"{ticker} price at {ts}: {close_price}")
-
-    if len(closes_dict) > cur_len_closes_dict:
-        closes_arr = np.array(list(closes_dict.values())[:-1])
-        on_candle_close(closes_arr)
-
-
-def on_message(ws, message):
-    global closes_dict, cur_len_closes_dict, start_datetime
+def order(symbol, side, order_type, quantity, last_rsi):
     try:
-        on_message_helper(message)
+        print("Sending order")
+        order = client.create_order(symbol=symbol,
+                                    side=side,
+                                    type=order_type,
+                                    quantity=quantity)
+        print("Order successful:", order, "\n\n")
 
+        # Logging executed price and quantity
+        try:
+            actual_price = order['fills'][0]['price']
+            actual_quantity = order['fills'][0]['qty']
+            commission = order['fills'][0]['commission']
+        except Exception as e:
+            actual_price = ""
+            actual_quantity = ""
+            commission = ""
+            print("Error saving to order details logs:", e)
+
+        # Logging balances of both assets traded
+        try:
+            balance_1 = float(client.get_asset_balance(asset=ASSET_1)['free'])
+            usd_price_1 = float(client.get_avg_price(symbol=f'{ASSET_1}USDT')['price'])
+            balance_2 = float(client.get_asset_balance(asset=ASSET_2)['free'])
+            usd_price_2 = float(client.get_avg_price(symbol=f'{ASSET_2}USDT')['price'])
+            balance_usd = balance_1*usd_price_1 + balance_2*usd_price_2
+        except Exception as e:
+            balance_1 = ""
+            usd_price_1 = ""
+            balance_2 = ""
+            usd_price_2 = ""
+            balance_usd = ""
+            print("Error saving balances to logs:", e)
+
+        try:
+            total_balance_btc = float(balance_1)*float(actual_price) + float(balance_2)
+        except Exception as e:
+            total_balance_btc = ""
+            print("Error getting BTC balance:", e)
+
+
+        col_names = ["collection_started_datetime",
+                        "order_placed_datetime",
+                        "ticker",
+                        "side", 
+                        "order_type",
+                        "quantity_attempted",
+                        "expected_price",
+                        "actual_price",
+                        "actual_quantity",
+                        "commission",
+                        f"{ASSET_1}_balance",
+                        f"{ASSET_2}_balance",
+                        "total_balance_usd",
+                        "total_balance_btc",
+                        "last RSI"]
+        row = [start_datetime,
+                datetime.now(),
+                symbol,
+                side,
+                order_type,
+                quantity,
+                list(closes_dict.values())[-2],
+                actual_price,
+                actual_quantity,
+                commission,
+                balance_1,
+                balance_2,
+                balance_usd,
+                total_balance_btc,
+                last_rsi]
+        append_data(f"../Trading CSVs/{TRADE_SYMBOL}_trades_log.csv", col_names, row)
+    
     except Exception as e:
-        print(e)
+        print("Order failed:", e, "\n\n")
+        return False
+
+    return True
 
 
 binance_ws = websocket.WebSocketApp(BINANCE_SOCKET,
