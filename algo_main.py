@@ -81,17 +81,21 @@ def on_candle_close(closes_arr):
     # We need to ensure we are not considering the most recent price, as this will be the beginning
     # of the next candle - we must look at the previous price
     if len(closes_dict) >= 2:
-        col_names = ["datetime_collected", "datetime", "price"]
-        row = [START_DATETIME,
-                    list(closes_dict.keys())[-2],
-                    list(closes_dict.values())[-2]
-                    ]
 
-        append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv", col_names, row)
+        trade_executed = None
 
         # RSI can only be calculated on the (RSI_PERIOD+1)th closing price
         if len(closes_arr) >= RSI_PERIOD + 1: #####+2
-            consider_trade(closes_arr)
+            trade_executed = consider_trade(closes_arr)
+
+        col_names = ["datetime_collected", "datetime", "price", "trade_made"]
+        row = [START_DATETIME,
+                    list(closes_dict.keys())[-2],
+                    list(closes_dict.values())[-2],
+                    trade_executed
+                    ]
+
+        append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv", col_names, row)
 
 
 def consider_trade(closes_arr):    
@@ -107,6 +111,8 @@ def consider_trade(closes_arr):
             order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr, last_rsi)
             if order_succeeded:
                 in_long_position = False
+                trade_executed = "sell"
+                return trade_executed
         else:
             print("Selling opportunity, but not in long position\n")
 
@@ -118,6 +124,10 @@ def consider_trade(closes_arr):
             order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr, last_rsi)
             if order_succeeded:
                 in_long_position = True
+                trade_executed = "buy"
+                return trade_executed
+    
+    return None
 
 def order(symbol, side, order_type, quantity, closes_arr, last_rsi):
     try:
