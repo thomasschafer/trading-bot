@@ -1,29 +1,44 @@
-import numpy as np
-import pandas as pd
+# Core Python modules
 from datetime import datetime
-import websocket
 import json
-import talib
+
+# Binance modules
 from binance.client import Client
 from binance import enums
-from algo_utils import append_data
+
+# Project modules
+from utilities import append_data
+from strategies import RSIWithBreakoutConfirmation
+
+# Additional modules
+import numpy as np
+import pandas as pd
+import websocket
 
 
 ASSET_1 = "BNB" # Ticker for asset bought
 ASSET_2 = "BTC" # Ticker for asset sold
 TRADE_SYMBOL = ASSET_1 + ASSET_2
 
-TRADE_QUANTITY = 0.5
+TRADE_QUANTITY = 0.2
 
 RSI_PERIOD = 14
 RSI_OVERBOUGHT = 63
 RSI_OVERSOLD = 37
 
+STOP_LOSS_THRESHOLD = 1/100
+STOP_LOSS_COOL_DOWN_MINS = 5
+
 BINANCE_SOCKET = f"wss://stream.binance.com:9443/ws/{TRADE_SYMBOL.lower()}@kline_1m"
 
 START_DATETIME = str(datetime.now())
 
+# Strategy is the strategy used to decide when to trade
+Strategy = RSIWithBreakoutConfirmation(RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD)
+
 in_long_position = False
+last_buy_price = 0
+last_position_stop_triggered = -1000
 closes_dict = {}
 cur_closes_dict_len = len(closes_dict)
 
@@ -35,6 +50,7 @@ with open("../config/algo_config.json") as f:
 client = Client(config_dict['api_key'], config_dict['api_sec'])
 
 
+# Functions determining what happens when the web socket is openened and closed, and when a message is recieved
 def on_open(ws):
     print("Opened connection")
 
@@ -80,12 +96,12 @@ def on_candle_close(closes_arr):
 
     # We need to ensure we are not considering the most recent price, as this will be the beginning
     # of the next candle - we must look at the previous price
-    if len(closes_dict) >= 2:
+    if cur_closes_dict_len >= 2:
 
         trade_executed = None
 
         # RSI can only be calculated on the (RSI_PERIOD+1)th closing price
-        if len(closes_arr) >= RSI_PERIOD + 1: #####+2
+        if len(closes_arr) >= RSI_PERIOD + 2:
             trade_executed = consider_trade(closes_arr)
 
         col_names = ["datetime_collected", "datetime", "price", "trade_made"]
@@ -99,37 +115,39 @@ def on_candle_close(closes_arr):
 
 
 def consider_trade(closes_arr):    
-    global in_long_position
+    global cur_closes_dict_len, in_long_position, last_buy_price, last_position_stop_triggered
 
-    rsi = talib.RSI(closes_arr, RSI_PERIOD)
-    last_rsi = rsi[-2]
-    print(f"All RSIs calculated so far: {rsi}\n")
+    cur_price, prev_price, prev_rsi = Strategy.calc_rsi(closes_arr)
 
-    if (last_rsi >= RSI_OVERBOUGHT) and (closes_arr[-1] < closes_arr[-2]):
-        if in_long_position:
-            print("Attempting to sell...")
-            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr, last_rsi)
-            if order_succeeded:
-                in_long_position = False
-                trade_executed = "sell"
-                return trade_executed
-        else:
-            print("Selling opportunity, but not in long position\n")
+    should_sell = Strategy.should_sell(cur_price, prev_price, prev_rsi)
+    should_buy = Strategy.should_buy(cur_price, prev_price, prev_rsi)
 
-    if (last_rsi <= RSI_OVERSOLD) and (closes_arr[-1] > closes_arr[-2]):
-        if in_long_position:
-            print("Buying opportunity, but already in a position\n")
-        else:
-            print("Attempting to buy...")
-            order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr, last_rsi)
-            if order_succeeded:
-                in_long_position = True
-                trade_executed = "buy"
-                return trade_executed
+    should_trigger_stop_loss = (closes_arr[-1] <= (1 - STOP_LOSS_THRESHOLD)*last_buy_price)
+
+    if (should_sell or should_trigger_stop_loss) and in_long_position:
+        print("Attempting to sell" + should_trigger_stop_loss*" (stop loss executed)")
+        order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr)
+        if should_trigger_stop_loss:
+            last_position_stop_triggered = cur_closes_dict_len
+
+        if order_succeeded:
+            in_long_position = False
+            return "sell"
+
+    elif (should_buy and not in_long_position
+            and (cur_closes_dict_len >= last_position_stop_triggered + STOP_LOSS_COOL_DOWN_MINS)):
+        
+        print("Attempting to buy...")
+        order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr)
+        
+        if order_succeeded:
+            last_buy_price = closes_arr[-1]
+            in_long_position = True
+            return "buy"
     
     return None
 
-def order(symbol, side, order_type, quantity, closes_arr, last_rsi):
+def order(symbol, side, order_type, quantity, closes_arr):
     try:
         print("Sending order")
         order = client.create_order(symbol=symbol,
@@ -138,7 +156,7 @@ def order(symbol, side, order_type, quantity, closes_arr, last_rsi):
                                     quantity=quantity)
         print("Order successful:", order, "\n\n")
 
-        # Logging executed price and quantity
+        # Executed price and quantity, for logs
         try:
             actual_price = order['fills'][0]['price']
             actual_quantity = order['fills'][0]['qty']
@@ -149,7 +167,7 @@ def order(symbol, side, order_type, quantity, closes_arr, last_rsi):
             commission = ""
             print("Error saving to order details logs:", e)
 
-        # Logging balances of both assets traded
+        # Balances of both assets traded, for logs
         try:
             balance_1 = float(client.get_asset_balance(asset=ASSET_1)['free'])
             usd_price_1 = float(client.get_avg_price(symbol=f'{ASSET_1}USDT')['price'])
@@ -184,8 +202,7 @@ def order(symbol, side, order_type, quantity, closes_arr, last_rsi):
                         f"{ASSET_1}_balance",
                         f"{ASSET_2}_balance",
                         "total_balance_usd",
-                        "total_balance_btc",
-                        "last RSI"]
+                        "total_balance_btc"]
         row = [START_DATETIME,
                 datetime.now(),
                 symbol,
@@ -199,8 +216,7 @@ def order(symbol, side, order_type, quantity, closes_arr, last_rsi):
                 balance_1,
                 balance_2,
                 balance_usd,
-                total_balance_btc,
-                last_rsi]
+                total_balance_btc]
         append_data(f"../Trading CSVs/{TRADE_SYMBOL}_trades_log.csv", col_names, row)
     
     except Exception as e:
