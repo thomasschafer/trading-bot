@@ -8,7 +8,7 @@ from binance import enums
 
 # Project modules
 from utilities import append_data
-from strategies import RSIWithBreakoutConfirmation
+import strategies
 
 # Additional modules
 import numpy as np
@@ -21,11 +21,6 @@ ASSET_2 = "BTC" # Ticker for asset sold
 TRADE_SYMBOL = ASSET_1 + ASSET_2
 
 TRADE_QUANTITY = 0.2
-
-RSI_PERIOD = 14
-RSI_OVERBOUGHT = 63
-RSI_OVERSOLD = 37
-
 STOP_LOSS_THRESHOLD = 1/100
 STOP_LOSS_COOL_DOWN_MINS = 5
 
@@ -33,8 +28,12 @@ BINANCE_SOCKET = f"wss://stream.binance.com:9443/ws/{TRADE_SYMBOL.lower()}@kline
 
 START_DATETIME = str(datetime.now())
 
+RSI_PERIOD = 14
+RSI_OVERBOUGHT = 65
+RSI_OVERSOLD = 35
+
 # Strategy is the strategy used to decide when to trade
-Strategy = RSIWithBreakoutConfirmation(RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD)
+Strategy = strategies.RSIWithBreakoutConfirmation(RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD)
 
 in_long_position = False
 last_buy_price = 0
@@ -119,12 +118,12 @@ def consider_trade(closes_arr):
 
     cur_price, prev_price, prev_rsi = Strategy.calc_rsi(closes_arr)
 
-    should_sell = Strategy.should_sell(cur_price, prev_price, prev_rsi)
-    should_buy = Strategy.should_buy(cur_price, prev_price, prev_rsi)
+    should_sell = Strategy.should_sell(cur_price, prev_price, prev_rsi, in_long_position)
+    should_buy = Strategy.should_buy(cur_price, prev_price, prev_rsi, in_long_position)
 
     should_trigger_stop_loss = (closes_arr[-1] <= (1 - STOP_LOSS_THRESHOLD)*last_buy_price)
 
-    if (should_sell or should_trigger_stop_loss) and in_long_position:
+    if should_sell or (should_trigger_stop_loss and in_long_position):
         print("Attempting to sell" + should_trigger_stop_loss*" (stop loss executed)")
         order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr)
         if should_trigger_stop_loss:
@@ -134,8 +133,7 @@ def consider_trade(closes_arr):
             in_long_position = False
             return "sell"
 
-    elif (should_buy and not in_long_position
-            and (cur_closes_dict_len >= last_position_stop_triggered + STOP_LOSS_COOL_DOWN_MINS)):
+    elif should_buy and (cur_closes_dict_len >= last_position_stop_triggered + STOP_LOSS_COOL_DOWN_MINS):
         
         print("Attempting to buy...")
         order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr)
