@@ -112,7 +112,6 @@ def on_candle_close(closes_arr):
 
         append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv", col_names, row)
 
-
 def consider_trade(closes_arr):  
     global cur_closes_dict_len, in_long_position, last_buy_price, last_position_stop_triggered
 
@@ -122,9 +121,9 @@ def consider_trade(closes_arr):
 
     should_trigger_stop_loss = (closes_arr[-1] <= (1 - STOP_LOSS_THRESHOLD)*last_buy_price)
 
-    print("Considering trade:", "cur_price", cur_price, "prev_price", prev_price,
-            "prev_rsi", prev_rsi, "should_sell", should_sell, "should_buy", should_buy,
-            "should_trigger_stop_loss", should_trigger_stop_loss, "in_long_position", in_long_position)
+    print("Considering trade:", "cur_price:", cur_price, ", prev_price:", prev_price,
+            ", prev_rsi:", prev_rsi, ", should_sell:", should_sell, ", should_buy:", should_buy,
+            ", should_trigger_stop_loss:", should_trigger_stop_loss, ", in_long_position:", in_long_position)
 
     if should_sell or (should_trigger_stop_loss and in_long_position):
         print("Attempting to sell" + should_trigger_stop_loss*" (stop loss executed)")
@@ -166,7 +165,7 @@ def order(symbol, side, order_type, quantity, closes_arr):
             actual_price = ""
             actual_quantity = ""
             commission = ""
-            print("Error saving to order details logs:", e)
+            print("Error getting order details:", e)
 
         # Balances of both assets traded, for logs
         try:

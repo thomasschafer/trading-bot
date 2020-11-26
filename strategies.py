@@ -1,3 +1,5 @@
+import talib
+
 class StrategyInterface():
     def should_sell(self):
         return False
