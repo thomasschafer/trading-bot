@@ -16,8 +16,8 @@ import pandas as pd
 import websocket
 
 
-ASSET_1 = "BNB" # Ticker for asset bought
-ASSET_2 = "BTC" # Ticker for asset sold
+ASSET_1 = "BTC" # Ticker for asset bought
+ASSET_2 = "USDT" # Ticker for asset sold
 TRADE_SYMBOL = ASSET_1 + ASSET_2
 
 TRADE_QUANTITY = 0.2
@@ -172,22 +172,16 @@ def order(symbol, side, order_type, quantity, closes_arr):
             balance_1 = float(client.get_asset_balance(asset=ASSET_1)['free'])
             usd_price_1 = float(client.get_avg_price(symbol=f'{ASSET_1}USDT')['price'])
             balance_2 = float(client.get_asset_balance(asset=ASSET_2)['free'])
-            usd_price_2 = float(client.get_avg_price(symbol=f'{ASSET_2}USDT')['price'])
+            if ASSET_1 == "USDT":
+                usd_price_2 = 1
+            else:
+                usd_price_2 = float(client.get_avg_price(symbol=f'{ASSET_1}USDT')['price'])
             balance_usd = balance_1*usd_price_1 + balance_2*usd_price_2
         except Exception as e:
             balance_1 = ""
-            usd_price_1 = ""
             balance_2 = ""
-            usd_price_2 = ""
             balance_usd = ""
             print("Error saving balances to logs:", e)
-
-        try:
-            total_balance_btc = float(balance_1)*float(actual_price) + float(balance_2)
-        except Exception as e:
-            total_balance_btc = ""
-            print("Error getting BTC balance:", e)
-
 
         col_names = ["collection_started_datetime",
                         "order_placed_datetime",
@@ -201,26 +195,26 @@ def order(symbol, side, order_type, quantity, closes_arr):
                         "commission",
                         f"{ASSET_1}_balance",
                         f"{ASSET_2}_balance",
-                        "total_balance_usd",
-                        "total_balance_btc"]
+                        "total_balance_usd"
+                        ]
         row = [START_DATETIME,
                 datetime.now(),
                 symbol,
                 side,
                 order_type,
                 quantity,
-                closes_arr[-2],
+                closes_arr[-1],
                 actual_price,
                 actual_quantity,
                 commission,
                 balance_1,
                 balance_2,
-                balance_usd,
-                total_balance_btc]
+                balance_usd
+            ]
         append_data(f"../Trading CSVs/{TRADE_SYMBOL}_trades_log.csv", col_names, row)
     
     except Exception as e:
-        print("Order failed:", e, "\n\n")
+        print("Order failed:", e, "\n")
         return False
 
     return True
