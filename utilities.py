@@ -1,8 +1,9 @@
 from pathlib import Path
 
-def append_data(csv_path, col_names, row_to_append):
+def append_data(csv_path, col_names, row):
     
-    row = [str(x) for x in row_to_append]
+    col_names = [str(x) for x in col_names]
+    row = [str(x) for x in row]
 
     col_names_str = ",".join(col_names)
     row_str = ",".join(row)
