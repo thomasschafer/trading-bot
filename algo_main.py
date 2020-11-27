@@ -85,7 +85,6 @@ def on_message_helper(message):
         on_candle_close(closes_arr)
 
 
-
 def on_candle_close(closes_arr):
     global cur_closes_dict_len
     
@@ -111,6 +110,7 @@ def on_candle_close(closes_arr):
                     ]
 
         append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv", col_names, row)
+
 
 def consider_trade(closes_arr):  
     global cur_closes_dict_len, in_long_position, last_buy_price, last_position_stop_triggered
@@ -146,6 +146,7 @@ def consider_trade(closes_arr):
             return "buy"
     
     return None
+
 
 def order(symbol, side, order_type, quantity, closes_arr):
     try:
