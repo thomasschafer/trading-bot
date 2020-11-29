@@ -29,7 +29,7 @@ Run **`algo_main.py`** to begin trading. Ensure that **`TRADE_QUANTITY`** is mod
 
 Running **`visualise.py`** will create an automatically updating chart that displays the price movements since the bot began running, as well green dots for points at which a buy order was executed and red dots to indicate executed sell orders. Note that this uses matplotlib.animation.FuncAnimation which is a little temperamental about the IDEs it  works well with - I found issues running this in VSCode, but no problems using IDLE.
 
-The strategies used for trading are defined as classes in **`strategies.py`**, and can be easily extended when new ideas are developed. Once a new strategy class is defined, simply modify the initialisation of **Strategy** object in **`algo_main.py`**.
+The strategies used for trading are defined as classes in **`strategies.py`**, and can be easily extended when new ideas are developed. Once a new strategy class is defined, simply modify the initialisation of the **Strategy** object in **`algo_main.py`**.
 
 ## Disclaimer
 
