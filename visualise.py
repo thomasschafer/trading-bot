@@ -33,5 +33,7 @@ trade_data_loc = "../Trading CSVs/BTCUSDT_data.csv"
 def animate(i):
     plot_trade_data(trade_data_loc)
 
-a = FuncAnimation(fig, animate, interval=100)        
+# Automatically update every 15 seconds
+update_interval_ms = 15000
+a = FuncAnimation(fig, animate, interval=update_interval_ms)
 plt.show()

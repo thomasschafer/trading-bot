@@ -46,7 +46,7 @@ cur_closes_dict_len = len(closes_dict)
 with open("../config/algo_config.json") as f:
     config_dict = json.load(f)
 
-client = Client(config_dict['api_key'], config_dict['api_sec'])
+client = Client(config_dict['api_key'], config_dict['api_secret'])
 
 
 # Functions determining what happens when the web socket is openened and closed, and when a message is recieved
