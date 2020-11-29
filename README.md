@@ -18,7 +18,7 @@ pip install -r requirements.txt
 By default, the script looks for Binance API keys saved in a folder called **`config`** in the parent directory of the project. The keys are expected to be in a file called **`algo_config.json`**  which takes the form:
 
 ```json
-{"api_key": "INSERT API KEY HERE", "api_secret": "INSERT API KEY HERE"}
+{"api_key": "INSERT API KEY HERE", "api_secret": "INSERT API SECRET HERE"}
 ```
 
 This location can of course be modified in **`algo_main.py`**. Ensure that these keys remain secure as they permit access to all funds on the account.
