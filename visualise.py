@@ -28,7 +28,7 @@ def plot_trade_data(data_loc):
     ax.set_ylabel('Closing price')
     ax.set_xlabel("Datetime")
 
-trade_data_loc = "/Users/thomasschafer/Documents/Programming/Python/Trading CSVs/BTCUSDT_data.csv"
+trade_data_loc = "../Trading CSVs/BTCUSDT_data.csv"
      
 def animate(i):
     plot_trade_data(trade_data_loc)
