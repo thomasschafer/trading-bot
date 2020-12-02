@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Function used for logging - essentially a modified CSV writer
 def append_data(csv_path, col_names, row):
     col_names = [str(x) for x in col_names]
     col_names_str = ",".join(col_names)

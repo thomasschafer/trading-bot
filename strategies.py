@@ -1,5 +1,7 @@
 import talib
 
+# Strategies should take this format to ensure no modification to algo_main
+# is required
 class StrategyInterface():
     def should_sell(self):
         return False
