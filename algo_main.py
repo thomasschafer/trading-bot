@@ -7,8 +7,8 @@ from binance.client import Client
 from binance import enums
 
 # Project modules
-from utilities import append_data
-import strategies
+from utilities import append_data, CurrentTradingSession
+from strategies import RSIWithBreakoutConfirmation
 
 # Additional modules
 import numpy as np
@@ -33,13 +33,11 @@ RSI_OVERBOUGHT = 65
 RSI_OVERSOLD = 35
 
 # Strategy is the strategy used to decide when to trade
-Strategy = strategies.RSIWithBreakoutConfirmation(RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD)
+Strategy = RSIWithBreakoutConfirmation(RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD)
 
-in_long_position = False
-last_buy_price = 0
-last_position_stop_triggered = -1000
-closes_dict = {}
-cur_closes_dict_len = len(closes_dict)
+# This object holds information about the current trading session, such as whether a long
+# position is being held and what the last buy price was
+cur_trading_sess = CurrentTradingSession()
 
 
 # Loading API key and secret, which are saved in an external file
@@ -57,7 +55,6 @@ def on_close(ws):
     print("Closed connection")
 
 def on_message(ws, message):
-    global cur_closes_dict_len
     try:
         on_message_helper(message)
 
@@ -66,7 +63,6 @@ def on_message(ws, message):
 
 
 def on_message_helper(message):
-    global cur_closes_dict_len
     message_dict = json.loads(message)
 
     ticker = message_dict['s']
@@ -76,25 +72,23 @@ def on_message_helper(message):
 
     close_price = float(message_dict['k']['c'])
 
-    closes_dict[ts[:-3]] = close_price
+    cur_trading_sess.closes_dict[ts[:-3]] = close_price
 
     print(f"{ticker} price at {ts}: {close_price}")
 
-    if len(closes_dict) > cur_closes_dict_len:
-        closes_arr = np.array(list(closes_dict.values())[:-1])
+    if len(cur_trading_sess.closes_dict) > cur_trading_sess.cur_closes_dict_len:
+        closes_arr = np.array(list(cur_trading_sess.closes_dict.values())[:-1])
         on_candle_close(closes_arr)
 
 
-def on_candle_close(closes_arr):
-    global cur_closes_dict_len
-    
-    cur_closes_dict_len = len(closes_dict)
+def on_candle_close(closes_arr):    
+    cur_trading_sess.cur_closes_dict_len = len(cur_trading_sess.closes_dict)
 
     print("\nClosing prices:", closes_arr, "\n")
 
     # We need to ensure we are not considering the most recent price, as this will be the beginning
     # of the next candle - we must look at the previous price
-    if cur_closes_dict_len >= 2:
+    if cur_trading_sess.cur_closes_dict_len >= 2:
 
         trade_executed = None
 
@@ -104,8 +98,8 @@ def on_candle_close(closes_arr):
 
         col_names = ["datetime_collected", "datetime", "price", "trade_made"]
         row = [START_DATETIME,
-                    list(closes_dict.keys())[-2],
-                    list(closes_dict.values())[-2],
+                    list(cur_trading_sess.closes_dict.keys())[-2],
+                    list(cur_trading_sess.closes_dict.values())[-2],
                     trade_executed
                     ]
 
@@ -113,36 +107,35 @@ def on_candle_close(closes_arr):
 
 
 def consider_trade(closes_arr):  
-    global cur_closes_dict_len, in_long_position, last_buy_price, last_position_stop_triggered
-
     cur_price, prev_price, prev_rsi = Strategy.calc(closes_arr)
-    should_sell = Strategy.should_sell(prev_rsi, in_long_position, cur_price, prev_price)
-    should_buy = Strategy.should_buy(prev_rsi, in_long_position,  cur_price, prev_price)
+    should_sell = Strategy.should_sell(prev_rsi, cur_trading_sess.in_long_position, cur_price, prev_price)
+    should_buy = Strategy.should_buy(prev_rsi, cur_trading_sess.in_long_position,  cur_price, prev_price)
 
-    should_trigger_stop_loss = (closes_arr[-1] <= (1 - STOP_LOSS_THRESHOLD)*last_buy_price)
+    should_trigger_stop_loss = (closes_arr[-1] <= (1 - STOP_LOSS_THRESHOLD)*cur_trading_sess.last_buy_price)
 
+    # For debugging
     print("Considering trade:", "cur_price:", cur_price, ", prev_price:", prev_price,
             ", prev_rsi:", prev_rsi, ", should_sell:", should_sell, ", should_buy:", should_buy,
-            ", should_trigger_stop_loss:", should_trigger_stop_loss, ", in_long_position:", in_long_position)
+            ", should_trigger_stop_loss:", should_trigger_stop_loss, ", in_long_position:", cur_trading_sess.in_long_position)
 
-    if should_sell or (should_trigger_stop_loss and in_long_position):
+    if should_sell or (should_trigger_stop_loss and cur_trading_sess.in_long_position):
         print("Attempting to sell" + should_trigger_stop_loss*" (stop loss executed)")
         order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr)
         if should_trigger_stop_loss:
-            last_position_stop_triggered = cur_closes_dict_len
+            cur_trading_sess.last_position_stop_triggered = cur_trading_sess.cur_closes_dict_len
 
         if order_succeeded:
-            in_long_position = False
+            cur_trading_sess.in_long_position = False
             return "sell"
 
-    elif should_buy and (cur_closes_dict_len >= last_position_stop_triggered + STOP_LOSS_COOL_DOWN_MINS):
+    elif should_buy and (cur_trading_sess.cur_closes_dict_len >= cur_trading_sess.last_position_stop_triggered + STOP_LOSS_COOL_DOWN_MINS):
         
         print("Attempting to buy...")
         order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr)
         
         if order_succeeded:
-            last_buy_price = closes_arr[-1]
-            in_long_position = True
+            cur_trading_sess.last_buy_price = closes_arr[-1]
+            cur_trading_sess.in_long_position = True
             return "buy"
     
     return None
