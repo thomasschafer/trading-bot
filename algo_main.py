@@ -15,28 +15,27 @@ import numpy as np
 import pandas as pd
 import websocket
 
-
+# Constants adjustable by user
 ASSET_1 = "BTC" # Ticker for asset bought
 ASSET_2 = "USDT" # Ticker for asset sold
-TRADE_SYMBOL = ASSET_1 + ASSET_2
-
 TRADE_QUANTITY = 0.001
 STOP_LOSS_THRESHOLD = 0.5/100
 STOP_LOSS_COOL_DOWN_MINS = 5
-
-BINANCE_SOCKET = f"wss://stream.binance.com:9443/ws/{TRADE_SYMBOL.lower()}@kline_1m"
-
-START_DATETIME = str(datetime.now())
-
+# For use with a strategy requiring RSI calculations
 RSI_PERIOD = 14
 RSI_OVERBOUGHT = 65
 RSI_OVERSOLD = 35
 
-# Strategy is the strategy used to decide when to trade
+# Constants not intended to be adjusted
+TRADE_SYMBOL = ASSET_1 + ASSET_2
+BINANCE_SOCKET = f"wss://stream.binance.com:9443/ws/{TRADE_SYMBOL.lower()}@kline_1m"
+START_DATETIME = str(datetime.now())
+
+# Strategy used to decide when to trade
 Strategy = RSIWithBreakoutConfirmation(RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD)
 
-# This object holds information about the current trading session, such as whether a long
-# position is being held and what the last buy price was
+# This object holds information about the current trading session, such as
+# whether a long position is being held and what the last buy price was
 cur_trading_sess = CurrentTradingSession()
 
 
@@ -47,7 +46,8 @@ with open("../config/algo_config.json") as f:
 client = Client(config_dict['api_key'], config_dict['api_secret'])
 
 
-# Functions determining what happens when the web socket is openened and closed, and when a message is recieved
+# Functions determining what happens when the web socket is openened and closed,
+# and when a message is recieved
 def on_open(ws):
     print("Opened connection")
 
@@ -63,6 +63,22 @@ def on_message(ws, message):
 
 
 def on_message_helper(message):
+    """Loads the message from the Binance websocket into a dictionary, and
+    extracts the price and time returned. This is outputted to the console,
+    and saved into a dictionary mapping datetime values (accurate to the
+    nearest minute) to price values. If a new minute has begun, on_candle_close
+    is called.
+
+    Parameters
+    ----------
+    message : str
+        message from the websocket
+
+    Returns
+    -------
+    None
+    """
+
     message_dict = json.loads(message)
 
     ticker = message_dict['s']
@@ -81,13 +97,29 @@ def on_message_helper(message):
         on_candle_close(closes_arr)
 
 
-def on_candle_close(closes_arr):    
+def on_candle_close(closes_arr):
+    """Outputs the closing prices array to the console (for debugging
+    purposes), and appends the most recent closing price to a trading data CSV.
+    If there sufficient data has been collected then consider_trade will be
+    called.
+
+    Parameters
+    ----------
+    closes_arr : np.array
+        Numpy array of closing prices
+
+    Returns
+    -------
+    None
+    """
+
     cur_trading_sess.cur_closes_dict_len = len(cur_trading_sess.closes_dict)
 
     print("\nClosing prices:", closes_arr, "\n")
 
-    # We need to ensure we are not considering the most recent price, as this will be the beginning
-    # of the next candle - we must look at the previous price
+    # We need to ensure we are not considering the most recent price, as this
+    # will be the beginning of the next candle - we must look at the previous
+    # price
     if cur_trading_sess.cur_closes_dict_len >= 2:
 
         trade_executed = None
@@ -106,42 +138,94 @@ def on_candle_close(closes_arr):
         append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv", col_names, row)
 
 
-def consider_trade(closes_arr):  
+def consider_trade(closes_arr):
+    """Uses the trading strategy encapsulated in the Strategy object to
+    determine whether to make a trade, either buying or selling, possibly
+    due to the stop loss threshold being reached.
+
+    Parameters
+    ----------
+    closes_arr : np.array
+        Numpy array of closing prices
+
+    Returns
+    -------
+    order_executed_type : str
+        The type of order that was executed, if any. This takes values "buy",
+        "sell" or None.
+    """
+
     cur_price, prev_price, prev_rsi = Strategy.calc(closes_arr)
-    should_sell = Strategy.should_sell(prev_rsi, cur_trading_sess.in_long_position, cur_price, prev_price)
-    should_buy = Strategy.should_buy(prev_rsi, cur_trading_sess.in_long_position,  cur_price, prev_price)
+    should_sell = Strategy.should_sell(prev_rsi, cur_trading_sess.in_long_position,
+                                        cur_price, prev_price)
+    should_buy = Strategy.should_buy(prev_rsi, cur_trading_sess.in_long_position,
+                                        cur_price, prev_price)
 
     should_trigger_stop_loss = (closes_arr[-1] <= (1 - STOP_LOSS_THRESHOLD)*cur_trading_sess.last_buy_price)
 
-    # For debugging
-    print("Considering trade:", "cur_price:", cur_price, ", prev_price:", prev_price,
-            ", prev_rsi:", prev_rsi, ", should_sell:", should_sell, ", should_buy:", should_buy,
-            ", should_trigger_stop_loss:", should_trigger_stop_loss, ", in_long_position:", cur_trading_sess.in_long_position)
+    order_executed_type = None
+
+    # For debugging purposes
+    print("Considering trade: cur_price:", cur_price,
+            ", prev_price:", prev_price,
+            ", prev_rsi:", prev_rsi,
+            ", should_sell:", should_sell,
+            ", should_buy:", should_buy,
+            ", should_trigger_stop_loss:", should_trigger_stop_loss,
+            ", in_long_position:", cur_trading_sess.in_long_position)
 
     if should_sell or (should_trigger_stop_loss and cur_trading_sess.in_long_position):
         print("Attempting to sell" + should_trigger_stop_loss*" (stop loss executed)")
-        order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr)
+        order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET,
+                                    TRADE_QUANTITY, closes_arr)
         if should_trigger_stop_loss:
             cur_trading_sess.last_position_stop_triggered = cur_trading_sess.cur_closes_dict_len
 
         if order_succeeded:
             cur_trading_sess.in_long_position = False
-            return "sell"
+            order_executed_type = "sell"
 
-    elif should_buy and (cur_trading_sess.cur_closes_dict_len >= cur_trading_sess.last_position_stop_triggered + STOP_LOSS_COOL_DOWN_MINS):
+    elif should_buy\
+        and (cur_trading_sess.cur_closes_dict_len >=
+                cur_trading_sess.last_position_stop_triggered + STOP_LOSS_COOL_DOWN_MINS):
         
         print("Attempting to buy...")
-        order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET, TRADE_QUANTITY, closes_arr)
+        order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET,
+                                TRADE_QUANTITY, closes_arr)
         
         if order_succeeded:
             cur_trading_sess.last_buy_price = closes_arr[-1]
             cur_trading_sess.in_long_position = True
-            return "buy"
+            order_executed_type = "buy"
     
-    return None
+    return order_executed_type
 
 
 def order(symbol, side, order_type, quantity, closes_arr):
+    """
+
+    Parameters
+    ----------
+    symbol : str
+        The symbol (ticker) for the asset to be traded
+    side : str
+        The side to be traded (representing buying or selling)
+    order type : str
+        The type of order to be made, e.g. market order
+    quantity : float
+        The quantity of the aforementioned symbol to be traded
+    closes_arr : np.array
+        Numpy array of closing prices
+
+    Returns
+    -------
+    order_was_successful : bool
+        Boolean set to true if the order was completed successfully, otherwise
+        false.
+    """
+
+    order_was_successful = False
+    
     try:
         print("Sending order")
         order = client.create_order(symbol=symbol,
@@ -149,6 +233,8 @@ def order(symbol, side, order_type, quantity, closes_arr):
                                     type=order_type,
                                     quantity=quantity)
         print("Order successful:", order, "\n\n")
+
+        order_was_successful = True
 
         # Executed price and quantity, for logs
         try:
@@ -209,9 +295,8 @@ def order(symbol, side, order_type, quantity, closes_arr):
     
     except Exception as e:
         print("Order failed:", e, "\n")
-        return False
 
-    return True
+    return order_was_successful
 
 
 binance_ws = websocket.WebSocketApp(BINANCE_SOCKET,
