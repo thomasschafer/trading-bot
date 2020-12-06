@@ -78,7 +78,6 @@ def on_message_helper(message):
     -------
     None
     """
-
     message_dict = json.loads(message)
 
     ticker = message_dict['s']
@@ -112,7 +111,6 @@ def on_candle_close(closes_arr):
     -------
     None
     """
-
     cur_trading_sess.cur_closes_dict_len = len(cur_trading_sess.closes_dict)
 
     print("\nClosing prices:", closes_arr, "\n")
@@ -154,7 +152,6 @@ def consider_trade(closes_arr):
         The type of order that was executed, if any. This takes values "buy",
         "sell" or None.
     """
-
     cur_price, prev_price, prev_rsi = Strategy.calc(closes_arr)
     should_sell = Strategy.should_sell(prev_rsi, cur_trading_sess.in_long_position,
                                         cur_price, prev_price)
@@ -176,8 +173,9 @@ def consider_trade(closes_arr):
 
     if should_sell or (should_trigger_stop_loss and cur_trading_sess.in_long_position):
         print("Attempting to sell" + should_trigger_stop_loss*" (stop loss executed)")
-        order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL, enums.ORDER_TYPE_MARKET,
-                                    TRADE_QUANTITY, closes_arr)
+        order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL,
+                                enums.ORDER_TYPE_MARKET, TRADE_QUANTITY,
+                                closes_arr)
         if should_trigger_stop_loss:
             cur_trading_sess.last_position_stop_triggered = cur_trading_sess.cur_closes_dict_len
 
@@ -190,8 +188,9 @@ def consider_trade(closes_arr):
                 cur_trading_sess.last_position_stop_triggered + STOP_LOSS_COOL_DOWN_MINS):
         
         print("Attempting to buy...")
-        order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY, enums.ORDER_TYPE_MARKET,
-                                TRADE_QUANTITY, closes_arr)
+        order_succeeded = order(TRADE_SYMBOL, enums.SIDE_BUY,
+                                enums.ORDER_TYPE_MARKET, TRADE_QUANTITY,
+                                closes_arr)
         
         if order_succeeded:
             cur_trading_sess.last_buy_price = closes_arr[-1]
@@ -225,7 +224,6 @@ def order(symbol, side, order_type, quantity, closes_arr):
         Boolean set to true if the order was completed successfully, otherwise
         false.
     """
-
     order_was_successful = False
     
     try:

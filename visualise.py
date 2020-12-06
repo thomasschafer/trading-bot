@@ -8,6 +8,20 @@ fig = plt.figure()
 ax = fig.add_subplot(111)
 
 def plot_trade_data(data_loc):
+    """Plots live trading data, auto-updating at the close of each minute
+    candle. The matplotlib FuncAnimation plot used here can be particular about
+    the IDEs it will run with, so please experiement with different IDEs if
+    issues occur.
+
+    Parameters
+    ----------
+    data_loc : str
+        The location of the CSV file containing trading and order data.
+
+    Returns
+    -------
+    None
+    """
     df_full = pd.read_csv(data_loc)
 
     # Only using data from current trading session
@@ -27,6 +41,7 @@ def plot_trade_data(data_loc):
     ax.plot(x, sell_executed, 'r-', marker='o', linewidth=3, ms=12)
     ax.set_ylabel('Closing price')
     ax.set_xlabel("Datetime")
+
 
 trade_data_loc = "../Trading CSVs/BTCUSDT_data.csv"
      

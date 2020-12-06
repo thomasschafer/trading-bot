@@ -1,7 +1,22 @@
 from pathlib import Path
 
-# Function used for logging - essentially a modified CSV writer
 def append_data(csv_path, col_names, row):
+    """Function used to add data to a CSV. Either appends to a CSV if the file
+    already exists, or creates a new CSV if not.
+
+    Parameters
+    ----------
+    csv_path : str
+        The path to the CSV which is to be either created or appended to.
+    col_names : list
+        The name of the fields in the CSV, used if the CSV is to be created.
+    row : list
+        The entries entered into the fields in the CSV.
+
+    Returns
+    -------
+    None
+    """
     col_names = [str(x) for x in col_names]
     col_names_str = ",".join(col_names)
     row = [str(x) for x in row]
@@ -15,9 +30,11 @@ def append_data(csv_path, col_names, row):
     with open(csv_path, 'a') as csv_file:
         csv_file.write("\n" + row_str)
 
-# The nature of the web socket used means that variables regarding the current trading session
-# cannot easily be passed around, so instead they are encapsulated in this class.
 class CurrentTradingSession():
+    """The nature of the web socket used means that variables regarding the
+    current trading session cannot easily be passed around, so instead they are
+    encapsulated in this class.
+    """
     def __init__(self):
         self.in_long_position = False
         self.last_buy_price = 0
@@ -26,6 +43,8 @@ class CurrentTradingSession():
         self.cur_closes_dict_len = len(self.closes_dict)
 
     def trading_results(self):
+        """Returns all current attributes of the object.
+        """
         return (self.in_long_position,
                 self.last_buy_price,
                 self.last_position_stop_triggered,
