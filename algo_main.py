@@ -21,7 +21,7 @@ ASSET_2 = "USDT" # Ticker for asset sold
 TRADE_QUANTITY = 0.001
 STOP_LOSS_THRESHOLD = 0.5/100
 STOP_LOSS_COOL_DOWN_MINS = 5
-# For use with a strategy requiring RSI calculations
+# For use with strategies requiring RSI calculations
 RSI_PERIOD = 14
 RSI_OVERBOUGHT = 65
 RSI_OVERSOLD = 35
@@ -100,8 +100,8 @@ def on_message_helper(message):
 def on_candle_close(closes_arr):
     """Outputs the closing prices array to the console (for debugging
     purposes), and appends the most recent closing price to a trading data CSV.
-    If there sufficient data has been collected then consider_trade will be
-    called.
+    If sufficient data has been collected then a there is the possiblity of
+    making a trade, in which case consider_trade will be called.
 
     Parameters
     ----------
@@ -202,7 +202,9 @@ def consider_trade(closes_arr):
 
 
 def order(symbol, side, order_type, quantity, closes_arr):
-    """
+    """Attempts to send the order specified to Binance. If this was successful,
+    details of the trade are saved to the trades log CSV, as well as account
+    balances and other useful information.
 
     Parameters
     ----------
