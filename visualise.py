@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from pandas.plotting import register_matplotlib_converters; register_matplotlib_converters()
+from pandas.plotting import register_matplotlib_converters;
+register_matplotlib_converters()
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
@@ -30,8 +31,10 @@ def plot_trade_data(data_loc):
 
     # Defining numpy arrays for plotting
     trades = df['trade_made'].values.reshape(-1)
-    buy_executed = np.array([closing_prices[i] if (trades[i] == "buy") else None for i in range(len(closing_prices))])
-    sell_executed = np.array([closing_prices[i] if (trades[i] == "sell") else None for i in range(len(closing_prices))])
+    buy_executed = np.array([closing_prices[i] if (trades[i] == "buy") else None\
+                                for i in range(len(closing_prices))])
+    sell_executed = np.array([closing_prices[i] if (trades[i] == "sell") else None\
+                                for i in range(len(closing_prices))])
     x = pd.to_datetime(df['datetime'])
 
     # Plotting graph
