@@ -1,12 +1,14 @@
 import talib
+import numpy as np
+from typing import Tuple
 
 class StrategyInterface():
     """Strategies should take this format to ensure no modification to
     algo_main is required.
     """
-    def should_sell(self):
+    def should_sell(self) -> bool:
         return False
-    def should_buy(self):
+    def should_buy(self) -> bool:
         return False
 
 class BasicRSI(StrategyInterface):
@@ -23,24 +25,24 @@ class BasicRSI(StrategyInterface):
     RSI_OVERSOLD : int
         Threshold below which a buy will be executed
     """
-    def __init__(self, RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD):
+    def __init__(self, RSI_PERIOD: float, RSI_OVERBOUGHT: float, RSI_OVERSOLD: float):
         self.RSI_PERIOD = RSI_PERIOD
         self.RSI_OVERBOUGHT = RSI_OVERBOUGHT
         self.RSI_OVERSOLD = RSI_OVERSOLD
     
-    def calc(self, closes_arr):
+    def calc(self, closes_arr: np.ndarray) -> bool:
         """Calculate and returns the current RSI
         """
         rsi = talib.RSI(closes_arr, self.RSI_PERIOD)
         cur_rsi = rsi[-1]
         return cur_rsi
     
-    def should_sell(self, cur_rsi, in_long_position):
+    def should_sell(self, cur_rsi: float, in_long_position: bool) -> bool:
         """Returns a boolean indicating whether or not the asset should be sold
         """
         return in_long_position and cur_rsi >= self.RSI_OVERBOUGHT
     
-    def should_buy(self, cur_rsi, in_long_position):
+    def should_buy(self, cur_rsi: float, in_long_position: bool) -> bool:
         """Returns a boolean indicating whether or not the asset should be
         bought
         """
@@ -59,10 +61,10 @@ class RSIWithBreakoutConfirmation(BasicRSI):
     RSI_OVERSOLD : int
         Threshold below which a buy will be executed
     """
-    def __init__(self, RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD):
+    def __init__(self, RSI_PERIOD: float, RSI_OVERBOUGHT: float, RSI_OVERSOLD: float):
         super().__init__(RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD)
         
-    def calc(self, closes_arr):
+    def calc(self, closes_arr: np.ndarray) -> Tuple[float, float, float]:
         """Returns the previous RSI, alonside the current and previous prices
         """
         cur_price = closes_arr[-1]
@@ -70,12 +72,14 @@ class RSIWithBreakoutConfirmation(BasicRSI):
         prev_rsi = super().calc(closes_arr[:-1])
         return cur_price, prev_price, prev_rsi
 
-    def should_sell(self, prev_rsi, in_long_position, cur_price, prev_price):
+    def should_sell(self, prev_rsi: float, in_long_position: bool,
+                        cur_price: float, prev_price: float) -> bool:
         """Returns a boolean indicating whether or not the asset should be sold
         """
         return super().should_sell(prev_rsi, in_long_position) and cur_price < prev_price
     
-    def should_buy(self, prev_rsi, in_long_position,  cur_price, prev_price):
+    def should_buy(self, prev_rsi: float, in_long_position: bool, 
+                        cur_price: float, prev_price: float) -> bool:
         """Returns a boolean indicating whether or not the asset should be
         bought
         """

@@ -1,6 +1,7 @@
 from pathlib import Path
+from typing import List, Any, Tuple, Dict
 
-def append_data(csv_path, col_names, row):
+def append_data(csv_path: str, col_names: List[Any], row: List[Any]) -> None:
     """Function used to add data to a CSV. Either appends to a CSV if the file
     already exists, or creates a new CSV if not.
 
@@ -8,9 +9,9 @@ def append_data(csv_path, col_names, row):
     ----------
     csv_path : str
         The path to the CSV which is to be either created or appended to.
-    col_names : list
+    col_names : List[Any]
         The name of the fields in the CSV, used if the CSV is to be created.
-    row : list
+    row : List[Any]
         The entries entered into the fields in the CSV.
 
     Returns
@@ -35,14 +36,14 @@ class CurrentTradingSession():
     current trading session cannot easily be passed around, so instead they are
     encapsulated in this class.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.in_long_position = False
         self.last_buy_price = 0
         self.last_position_stop_triggered = -1000
         self.closes_dict = {}
         self.cur_closes_dict_len = len(self.closes_dict)
 
-    def trading_results(self):
+    def trading_results(self) -> Tuple[bool, float, float, Dict[str, float], int]:
         """Returns all current attributes of the object.
         """
         return (self.in_long_position,

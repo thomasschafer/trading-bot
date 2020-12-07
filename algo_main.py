@@ -62,7 +62,7 @@ def on_message(ws, message):
         print(e)
 
 
-def on_message_helper(message):
+def on_message_helper(message: str) -> None:
     """Loads the message from the Binance websocket into a dictionary, and
     extracts the price and time returned. This is outputted to the console,
     and saved into a dictionary mapping datetime values (accurate to the
@@ -96,7 +96,7 @@ def on_message_helper(message):
         on_candle_close(closes_arr)
 
 
-def on_candle_close(closes_arr):
+def on_candle_close(closes_arr: np.ndarray) -> None:
     """Outputs the closing prices array to the console (for debugging
     purposes), and appends the most recent closing price to a trading data CSV.
     If sufficient data has been collected then a there is the possiblity of
@@ -104,7 +104,7 @@ def on_candle_close(closes_arr):
 
     Parameters
     ----------
-    closes_arr : np.array
+    closes_arr : np.ndarray
         Numpy array of closing prices
 
     Returns
@@ -136,14 +136,14 @@ def on_candle_close(closes_arr):
         append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv", col_names, row)
 
 
-def consider_trade(closes_arr):
+def consider_trade(closes_arr: np.ndarray) -> str:
     """Uses the trading strategy encapsulated in the Strategy object to
     determine whether to make a trade, either buying or selling, possibly
     due to the stop loss threshold being reached.
 
     Parameters
     ----------
-    closes_arr : np.array
+    closes_arr : np.ndarray
         Numpy array of closing prices
 
     Returns
@@ -200,7 +200,8 @@ def consider_trade(closes_arr):
     return order_executed_type
 
 
-def order(symbol, side, order_type, quantity, closes_arr):
+def order(symbol: str, side: str, order_type: str,
+            quantity: float, closes_arr: np.ndarray) -> bool:
     """Attempts to send the order specified to Binance. If this was successful,
     details of the trade are saved to the trades log CSV, as well as account
     balances and other useful information.
@@ -215,7 +216,7 @@ def order(symbol, side, order_type, quantity, closes_arr):
         The type of order to be made, e.g. market order
     quantity : float
         The quantity of the aforementioned symbol to be traded
-    closes_arr : np.array
+    closes_arr : np.ndarray
         Numpy array of closing prices
 
     Returns
@@ -299,8 +300,9 @@ def order(symbol, side, order_type, quantity, closes_arr):
     return order_was_successful
 
 
-binance_ws = websocket.WebSocketApp(BINANCE_SOCKET,
-                                    on_open=on_open,
-                                    on_close=on_close,
-                                    on_message=on_message)
-binance_ws.run_forever()
+if __name__ == '__main__':
+    binance_ws = websocket.WebSocketApp(BINANCE_SOCKET,
+                                        on_open=on_open,
+                                        on_close=on_close,
+                                        on_message=on_message)
+    binance_ws.run_forever()
