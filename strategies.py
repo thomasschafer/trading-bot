@@ -1,6 +1,10 @@
+from typing import Tuple
+import json
 import talib
 import numpy as np
-from typing import Tuple
+from tensorflow import keras
+from tensorflow.python.keras.engine.sequential import Sequential
+
 
 class StrategyInterface():
     """Strategies should take this format to ensure no modification to
@@ -10,6 +14,7 @@ class StrategyInterface():
         return False
     def should_buy(self) -> bool:
         return False
+
 
 class BasicRSI(StrategyInterface):
     """Strategy that simply buys when there is no open position and the RSI
@@ -84,3 +89,22 @@ class RSIWithBreakoutConfirmation(BasicRSI):
         bought
         """
         return super().should_buy(prev_rsi, in_long_position) and cur_price > prev_price
+
+
+class BasicLSTM(StrategyInterface):
+    """
+    """
+    def __init__(self, model_path: str, std_and_mean_path: str) -> None:
+        self.model = self.load_keras_model(model_path)
+        self.mean, self.std = self.load_std_and_mean(std_and_mean_path)
+
+    def load_keras_model(self, model_path: str) -> Sequential:
+        model = keras.models.load_model(model_path)
+        return model
+
+    def load_std_and_mean(self, std_and_mean_path: str) -> Tuple[float, float]:
+        with open(std_and_mean_path, 'r', encoding='utf-8') as f:
+            data_loaded = json.load(f)
+        std = data_loaded['std']
+        mean = data_loaded['mean']
+        return mean, std
