@@ -90,7 +90,6 @@ class RSIWithBreakoutConfirmation(BasicRSI):
         """
         return super().should_buy(prev_rsi, in_long_position) and cur_price > prev_price
 
-
 class BasicLSTM(StrategyInterface):
     """Strategy using an LSTM trained on historical BTCUSDT price data.
 
@@ -104,10 +103,16 @@ class BasicLSTM(StrategyInterface):
     std : float
         The standard deviation of the training data, which will again be
         required to normalise and denormalise the data
+    percent_change_trade_threshold : float
+        The minimum predicted percent change required to make a trade. For
+        instance, if this is set to be 1 then a trade will only be made if the
+        predicted price is at least 1% higher (or lower) than the current price
     """
-    def __init__(self, model_path: str, std_and_mean_path: str) -> None:
+    def __init__(self, model_path: str, std_and_mean_path: str,
+                    percent_change_trade_threshold: float = 1) -> None:
         self.model = self.load_keras_model(model_path)
         self.mean, self.std = self.load_mean_and_std(std_and_mean_path)
+        self.change_trade_threshold = percent_change_trade_threshold/100
 
     def load_keras_model(self, model_path: str) -> Sequential:
         """Loads pre-trained keras model
@@ -130,7 +135,7 @@ class BasicLSTM(StrategyInterface):
         Keras LSTM
         """
         # Formatting array of closing prices in order to make a prediction
-        closes_arr_norm = (closes_arr - self.mean)/self.std
+        closes_arr_norm = (np.array(closes_arr) - self.mean)/self.std
         closes_arr_norm = closes_arr_norm[-120:]
 
         # Using model to predict normalised pri e
@@ -147,7 +152,7 @@ class BasicLSTM(StrategyInterface):
         if in_long_position:
             prediction = self.predict_30_min_price(closes_arr)
             cur_price = closes_arr[-1]
-            if prediction < cur_price*0.99:
+            if prediction < cur_price*(1-self.change_trade_threshold):
                 return True
         return False
 
@@ -158,6 +163,6 @@ class BasicLSTM(StrategyInterface):
         if not in_long_position:
             prediction = self.predict_30_min_price(closes_arr)
             cur_price = closes_arr[-1]
-            if prediction > cur_price*0.99:
+            if prediction > cur_price*(1+self.change_trade_threshold):
                 return True
         return False
