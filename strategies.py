@@ -92,19 +92,72 @@ class RSIWithBreakoutConfirmation(BasicRSI):
 
 
 class BasicLSTM(StrategyInterface):
-    """
+    """Strategy using an LSTM trained on historical BTCUSDT price data.
+
+    Attributes
+    ----------
+    model : Sequential
+        The pre-trained Keras model used to predict prices
+    mean : float
+        The mean of the training data, which will be required to normalise (and
+        then denormalise) the data in order to predict the future price
+    std : float
+        The standard deviation of the training data, which will again be
+        required to normalise and denormalise the data
     """
     def __init__(self, model_path: str, std_and_mean_path: str) -> None:
         self.model = self.load_keras_model(model_path)
-        self.mean, self.std = self.load_std_and_mean(std_and_mean_path)
+        self.mean, self.std = self.load_mean_and_std(std_and_mean_path)
 
     def load_keras_model(self, model_path: str) -> Sequential:
+        """Loads pre-trained keras model
+        """
         model = keras.models.load_model(model_path)
         return model
 
-    def load_std_and_mean(self, std_and_mean_path: str) -> Tuple[float, float]:
+    def load_mean_and_std(self, std_and_mean_path: str) -> Tuple[float, float]:
+        """Loads mean and standard deviation of training data, in order to
+        normalise data for use with the model
+        """
         with open(std_and_mean_path, 'r', encoding='utf-8') as f:
             data_loaded = json.load(f)
         std = data_loaded['std']
         mean = data_loaded['mean']
         return mean, std
+
+    def predict_30_min_price(self, closes_arr: np.ndarray) -> float:
+        """Predicts the price 30 mins in the future, using the pre-loaded
+        Keras LSTM
+        """
+        # Formatting array of closing prices in order to make a prediction
+        closes_arr_norm = (closes_arr - self.mean)/self.std
+        closes_arr_norm = closes_arr_norm[-120:]
+
+        # Using model to predict normalised pri e
+        pred_arr = self.model.predict(closes_arr_norm.reshape(1, -1, 1))
+        prediction_norm = pred_arr[0, 0]
+
+        # Denormalising and returning prediction
+        prediction = prediction_norm*self.std + self.mean
+        return prediction
+
+    def should_sell(self, closes_arr: np.ndarray, in_long_position: bool) -> bool:
+        """Returns a boolean indicating whether or not the asset should be sold
+        """
+        if in_long_position:
+            prediction = self.predict_30_min_price(closes_arr)
+            cur_price = closes_arr[-1]
+            if prediction < cur_price*0.99:
+                return True
+        return False
+
+    def should_buy(self, closes_arr: np.ndarray, in_long_position: bool) -> bool:
+        """Returns a boolean indicating whether or not the asset should be
+        bought
+        """
+        if not in_long_position:
+            prediction = self.predict_30_min_price(closes_arr)
+            cur_price = closes_arr[-1]
+            if prediction > cur_price*0.99:
+                return True
+        return False
