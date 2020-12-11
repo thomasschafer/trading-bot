@@ -43,13 +43,14 @@ class BasicRSI(StrategyInterface):
         return cur_rsi
     
     def should_sell(self, cur_rsi: float, in_long_position: bool) -> bool:
-        """Returns a boolean indicating whether or not the asset should be sold
+        """Returns True if there is a long position currently open and the RSI
+        is at or above the overbought threshold, otherwise False.
         """
         return in_long_position and cur_rsi >= self.RSI_OVERBOUGHT
     
     def should_buy(self, cur_rsi: float, in_long_position: bool) -> bool:
-        """Returns a boolean indicating whether or not the asset should be
-        bought
+        """Returns True if there is no long position currently open and the RSI
+        is at or below the oversold threshold, otherwise False.
         """
         return (not in_long_position) and cur_rsi <= self.RSI_OVERSOLD
 
@@ -79,14 +80,17 @@ class RSIWithBreakoutConfirmation(BasicRSI):
 
     def should_sell(self, prev_rsi: float, in_long_position: bool,
                         cur_price: float, prev_price: float) -> bool:
-        """Returns a boolean indicating whether or not the asset should be sold
+        """Returns True if there is a long position currently open, the RSI is
+        at or above the overbought threshold and the price is decreasing,
+        otherwise False.
         """
         return super().should_sell(prev_rsi, in_long_position) and cur_price < prev_price
     
     def should_buy(self, prev_rsi: float, in_long_position: bool, 
                         cur_price: float, prev_price: float) -> bool:
-        """Returns a boolean indicating whether or not the asset should be
-        bought
+        """Returns True if there is no long position currently open, the RSI is
+        at or below the oversold threshold and the price is increasing,
+        otherwise False.
         """
         return super().should_buy(prev_rsi, in_long_position) and cur_price > prev_price
 
@@ -147,22 +151,25 @@ class BasicLSTM(StrategyInterface):
         return prediction
 
     def should_sell(self, closes_arr: np.ndarray, in_long_position: bool) -> bool:
-        """Returns a boolean indicating whether or not the asset should be sold
+        """Returns True if there is a long position currently open and the
+        predicted price is at least percent_change_trade_threshold lower than
+        the current price, otherwise False.
         """
         if in_long_position:
             prediction = self.predict_30_min_price(closes_arr)
             cur_price = closes_arr[-1]
-            if prediction < cur_price*(1-self.change_trade_threshold):
+            if prediction <= cur_price*(1-self.change_trade_threshold):
                 return True
         return False
 
     def should_buy(self, closes_arr: np.ndarray, in_long_position: bool) -> bool:
-        """Returns a boolean indicating whether or not the asset should be
-        bought
+        """Returns True if there is no long position currently open and the
+        predicted price is at least percent_change_trade_threshold higher than
+        the current price, otherwise False.
         """
         if not in_long_position:
             prediction = self.predict_30_min_price(closes_arr)
             cur_price = closes_arr[-1]
-            if prediction > cur_price*(1+self.change_trade_threshold):
+            if prediction >= cur_price*(1+self.change_trade_threshold):
                 return True
         return False
