@@ -2,7 +2,9 @@
 
 This project is an automated trading system that trades cryptocurrencies on the Binance exchange. By default it trades **BTCUSDT**, but all pairs on the exchange can be traded.
 
-Prices and executed trades are visualised in an automatically updating chart. Minute by minute candle data is continually appended to a CSV for analysis, alongside a log of trades and account balances to track profitability.
+The project contains a number of pre-built trading strategies, located inside **`strategies.py`**. The default strategy uses an LSTM neural network, which has been trained on all available 1-minute BTCUSDT data from Binance (around 3 years worth in total). 
+
+Prices and executed trades are visualised in an automatically updating chart, allowing for easy monitoring of positions. Minute by minute candle data is continually appended to a CSV for analysis, alongside a log of trades and account balances to track profitability.
 
 Please read the disclaimer before trading using this bot.
 
@@ -33,4 +35,4 @@ The strategies used for trading are defined as classes in **`strategies.py`**, a
 
 ## Disclaimer
 
-Please review all code in this project before allowing access to your funds. This project is presented without license or warranty, and no responsibility can be taken for money lost through trading or otherwise. No promise is made here about the profitability of the strategies used to trade, and users should be aware that investments may decrease in value or become worthless. If you are at all unsure about the nature of this tool, cryptocurrencies or trading then please seek professional financial advice.
+Please review all code in this project before allowing access to your funds. This project is presented without license or warranty, and no responsibility can be taken for money lost through trading or otherwise. No promise is made here about the profitability of the strategies used to trade, and users should be aware that investments may decrease in value or become worthless.
