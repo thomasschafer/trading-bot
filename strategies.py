@@ -56,7 +56,7 @@ class BasicRSI(StrategyInterface):
 
 class RSIWithBreakoutConfirmation(BasicRSI):
     """Strategy that is similar to BasicRSI, but waits for a reversal to begin
-    before trading
+    before making a trade.
 
     Attributes
     ----------
@@ -95,7 +95,11 @@ class RSIWithBreakoutConfirmation(BasicRSI):
         return super().should_buy(prev_rsi, in_long_position) and cur_price > prev_price
 
 class BasicLSTM(StrategyInterface):
-    """Strategy using an LSTM trained on historical BTCUSDT price data.
+    """Strategy using a pre-trained LSTM (Long short-term memory) neural
+    network to predict movements in price, buying if the predicted price is
+    sufficiently high above the current price (and an open position is not
+    currently being held), and selling if the predicted price is sufficiently
+    low below the current price (and no position is currently held).
 
     Attributes
     ----------
