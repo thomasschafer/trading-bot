@@ -155,7 +155,7 @@ class BasicLSTM(StrategyInterface):
         predicted price is at least percent_change_trade_threshold lower than
         the current price, otherwise False.
         """
-        if in_long_position:
+        if in_long_position and len(closes_arr) >= 120:
             prediction = self.predict_30_min_price(closes_arr)
             cur_price = closes_arr[-1]
             if prediction <= cur_price*(1-self.change_trade_threshold):
@@ -167,7 +167,7 @@ class BasicLSTM(StrategyInterface):
         predicted price is at least percent_change_trade_threshold higher than
         the current price, otherwise False.
         """
-        if not in_long_position:
+        if (not in_long_position) and len(closes_arr) >= 120:
             prediction = self.predict_30_min_price(closes_arr)
             cur_price = closes_arr[-1]
             if prediction >= cur_price*(1+self.change_trade_threshold):

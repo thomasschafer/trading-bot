@@ -8,7 +8,7 @@ from binance import enums
 
 # Project modules
 from utilities import append_data, CurrentTradingSession
-from strategies import RSIWithBreakoutConfirmation
+from strategies import BasicLSTM
 
 # Additional modules
 import numpy as np
@@ -21,10 +21,6 @@ ASSET_2 = "USDT" # Ticker for asset sold
 TRADE_QUANTITY = 0.001
 STOP_LOSS_THRESHOLD = 0.5/100
 STOP_LOSS_COOL_DOWN_MINS = 5
-# For use with strategies requiring RSI calculations
-RSI_PERIOD = 14
-RSI_OVERBOUGHT = 65
-RSI_OVERSOLD = 35
 
 # Constants not intended to be adjusted
 TRADE_SYMBOL = ASSET_1 + ASSET_2
@@ -32,7 +28,9 @@ BINANCE_SOCKET = f"wss://stream.binance.com:9443/ws/{TRADE_SYMBOL.lower()}@kline
 START_DATETIME = str(datetime.now())
 
 # Strategy used to decide when to trade
-Strategy = RSIWithBreakoutConfirmation(RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD)
+Strategy = BasicLSTM("../models/LSTM/model_save",
+                     "../models/LSTM/model_mean_std.json",
+                     1)
 
 # This object holds information about the current trading session, such as
 # whether a long position is being held and what the last buy price was
@@ -117,14 +115,10 @@ def on_candle_close(closes_arr: np.ndarray) -> None:
 
     # We need to ensure we are not considering the most recent price, as this
     # will be the beginning of the next candle - we must look at the previous
-    # price
+    # price, hence checking if there are at least two prices saved.
     if cur_trading_sess.cur_closes_dict_len >= 2:
 
-        trade_executed = None
-
-        # RSI can only be calculated on the (RSI_PERIOD+1)th closing price
-        if len(closes_arr) >= RSI_PERIOD + 2:
-            trade_executed = consider_trade(closes_arr)
+        trade_executed = consider_trade(closes_arr)
 
         col_names = ["datetime_collected", "datetime", "price", "trade_made"]
         row = [START_DATETIME,
@@ -152,17 +146,19 @@ def consider_trade(closes_arr: np.ndarray) -> str:
         The type of order that was executed, if any. This takes values "buy",
         "sell" or None.
     """
-    cur_price, prev_price, prev_rsi = Strategy.calc(closes_arr)
-    should_sell = Strategy.should_sell(prev_rsi, cur_trading_sess.in_long_position,
-                                        cur_price, prev_price)
-    should_buy = Strategy.should_buy(prev_rsi, cur_trading_sess.in_long_position,
-                                        cur_price, prev_price)
+    # OLD: cur_price, prev_price, prev_rsi = Strategy.calc(closes_arr)
+    should_sell = Strategy.should_sell(closes_arr[-120:],
+                                        cur_trading_sess.in_long_position)
+    should_buy = Strategy.should_buy(closes_arr[-120:],
+                                        cur_trading_sess.in_long_position)
 
     should_trigger_stop_loss = (closes_arr[-1] <= (1 - STOP_LOSS_THRESHOLD)*cur_trading_sess.last_buy_price)
 
     order_executed_type = None
 
     # For debugging purposes
+    cur_price, prev_price = closes_arr[-1], closes_arr[-2]
+    prev_rsi = 0
     print("Considering trade: cur_price:", cur_price,
             ", prev_price:", prev_price,
             ", prev_rsi:", prev_rsi,
@@ -300,7 +296,7 @@ def order(symbol: str, side: str, order_type: str,
     return order_was_successful
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     binance_ws = websocket.WebSocketApp(BINANCE_SOCKET,
                                         on_open=on_open,
                                         on_close=on_close,
