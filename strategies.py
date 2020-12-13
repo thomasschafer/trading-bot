@@ -96,10 +96,11 @@ class RSIWithBreakoutConfirmation(BasicRSI):
 
 class BasicLSTM(StrategyInterface):
     """Strategy using a pre-trained LSTM (Long short-term memory) neural
-    network to predict movements in price, buying if the predicted price is
-    sufficiently high above the current price (and an open position is not
-    currently being held), and selling if the predicted price is sufficiently
-    low below the current price (and no position is currently held).
+    network to predict movements in price. In particular, this stratgey buying
+    if the predicted price is sufficiently high above the current price, the
+    price is increasing and an open position is not currently being held. The
+    strategy sells if the predicted price is sufficiently low below the current
+    price, the price is decreasing and no position is currently held.
 
     Attributes
     ----------
@@ -155,25 +156,29 @@ class BasicLSTM(StrategyInterface):
         return prediction
 
     def should_sell(self, closes_arr: np.ndarray, in_long_position: bool) -> bool:
-        """Returns True if there is a long position currently open and the
+        """Returns True if there is a long position currently open, the
         predicted price is at least percent_change_trade_threshold lower than
-        the current price, otherwise False.
+        the current price, and the price is decreasing. Otherwise returns
+        False.
         """
         if in_long_position and len(closes_arr) >= 120:
             prediction = self.predict_30_min_price(closes_arr)
             cur_price = closes_arr[-1]
-            if prediction <= cur_price*(1-self.change_trade_threshold):
+            if ((prediction <= cur_price*(1-self.change_trade_threshold))\
+                and (closes_arr[-1] < closes_arr[-2])):
                 return True
         return False
 
     def should_buy(self, closes_arr: np.ndarray, in_long_position: bool) -> bool:
-        """Returns True if there is no long position currently open and the
+        """Returns True if there is no long position currently open, the
         predicted price is at least percent_change_trade_threshold higher than
-        the current price, otherwise False.
+        the current price, and the price is increasing. Otherwise returns
+        False.
         """
         if (not in_long_position) and len(closes_arr) >= 120:
             prediction = self.predict_30_min_price(closes_arr)
             cur_price = closes_arr[-1]
-            if prediction >= cur_price*(1+self.change_trade_threshold):
+            if ((prediction >= cur_price*(1+self.change_trade_threshold))\
+                and (closes_arr[-1] > closes_arr[-2])):
                 return True
         return False
