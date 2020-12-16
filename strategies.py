@@ -106,21 +106,14 @@ class BasicLSTM(StrategyInterface):
     ----------
     model : Sequential
         The pre-trained Keras model used to predict prices
-    mean : float
-        The mean of the training data, which will be required to normalise (and
-        then denormalise) the data in order to predict the future price
-    std : float
-        The standard deviation of the training data, which will again be
-        required to normalise and denormalise the data
     percent_change_trade_threshold : float
         The minimum predicted percent change required to make a trade. For
         instance, if this is set to be 1 then a trade will only be made if the
         predicted price is at least 1% higher (or lower) than the current price
     """
-    def __init__(self, model_path: str, std_and_mean_path: str,
+    def __init__(self, model_path: str,
                     percent_change_trade_threshold: float = 1) -> None:
         self.model = self.load_keras_model(model_path)
-        self.mean, self.std = self.load_mean_and_std(std_and_mean_path)
         self.change_trade_threshold = percent_change_trade_threshold/100
 
     def load_keras_model(self, model_path: str) -> Sequential:
@@ -129,30 +122,22 @@ class BasicLSTM(StrategyInterface):
         model = keras.models.load_model(model_path)
         return model
 
-    def load_mean_and_std(self, std_and_mean_path: str) -> Tuple[float, float]:
-        """Loads mean and standard deviation of training data, in order to
-        normalise data for use with the model
-        """
-        with open(std_and_mean_path, 'r', encoding='utf-8') as f:
-            data_loaded = json.load(f)
-        std = data_loaded['std']
-        mean = data_loaded['mean']
-        return mean, std
-
     def predict_30_min_price(self, closes_arr: np.ndarray) -> float:
         """Predicts the price 30 mins in the future, using the pre-loaded
         Keras LSTM
         """
-        # Formatting array of closing prices in order to make a prediction
-        closes_arr_norm = (np.array(closes_arr) - self.mean)/self.std
-        closes_arr_norm = closes_arr_norm[-120:]
+        # Formatting array of closing prices in order to make prediction
+        closing_prices = np.array(closes_arr)[-120:].copy()
+
+        closing_prices_mean = closing_prices.mean()
+        closing_prices_norm = closing_prices/closing_prices_mean
 
         # Using model to predict normalised pri e
-        pred_arr = self.model.predict(closes_arr_norm.reshape(1, -1, 1))
+        pred_arr = self.model.predict(closing_prices_norm.reshape(1, -1, 1))
         prediction_norm = pred_arr[0, 0]
 
         # Denormalising and returning prediction
-        prediction = prediction_norm*self.std + self.mean
+        prediction = prediction_norm*closing_prices_mean
         return prediction
 
     def should_sell(self, closes_arr: np.ndarray, in_long_position: bool) -> bool:

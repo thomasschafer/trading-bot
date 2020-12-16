@@ -38,7 +38,7 @@ class CurrentTradingSession():
     """
     def __init__(self) -> None:
         self.in_long_position = False
-        self.last_buy_price = 0
+        self.max_price_since_buy = 0
         self.last_position_stop_triggered = -1000
         self.closes_dict = {}
         self.cur_closes_dict_len = len(self.closes_dict)
@@ -47,7 +47,7 @@ class CurrentTradingSession():
         """Returns all current attributes of the object.
         """
         return (self.in_long_position,
-                self.last_buy_price,
+                self.max_price_since_buy,
                 self.last_position_stop_triggered,
                 self.closes_dict,
                 self.cur_closes_dict_len)

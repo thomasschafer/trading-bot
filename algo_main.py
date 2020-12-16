@@ -19,18 +19,19 @@ import websocket
 ASSET_1 = "BTC" # Ticker for asset bought
 ASSET_2 = "USDT" # Ticker for asset sold
 TRADE_QUANTITY = 0.001
+
+# Regardless of the strategy chosen, a a trailing stop loss is used, with the
+# parameters set below
 STOP_LOSS_THRESHOLD = 0.5/100
 STOP_LOSS_COOL_DOWN_MINS = 5
 
-# Constants not intended to be adjusted
+# Strategy used to decide when to trade
+Strategy = BasicLSTM("../models/LSTM/model_save", 0.1)
+
+# Other constants
 TRADE_SYMBOL = ASSET_1 + ASSET_2
 BINANCE_SOCKET = f"wss://stream.binance.com:9443/ws/{TRADE_SYMBOL.lower()}@kline_1m"
 START_DATETIME = str(datetime.now())
-
-# Strategy used to decide when to trade
-Strategy = BasicLSTM("../models/LSTM/model_save",
-                     "../models/LSTM/model_mean_std.json",
-                     1)
 
 # This object holds information about the current trading session, such as
 # whether a long position is being held and what the last buy price was
@@ -113,10 +114,16 @@ def on_candle_close(closes_arr: np.ndarray) -> None:
 
     print("\nClosing prices:", closes_arr, "\n")
 
-    # We need to ensure we are not considering the most recent price, as this
-    # will be the beginning of the next candle - we must look at the previous
-    # price, hence checking if there are at least two prices saved.
+    # Note that we need to ensure we are not considering the most recent price,
+    # as this will be the beginning of the next candle - we must look at the
+    # previous price. Hence below we check if there are at least two prices
+    # saved.
     if cur_trading_sess.cur_closes_dict_len >= 2:
+
+        # Updating the trailing stop loss if necessary
+        if cur_trading_sess.in_long_position:
+            cur_trading_sess.max_price_since_buy = max(cur_trading_sess.max_price_since_buy,
+                                                        closes_arr[-1])
 
         trade_executed = consider_trade(closes_arr)
 
@@ -146,13 +153,15 @@ def consider_trade(closes_arr: np.ndarray) -> str:
         The type of order that was executed, if any. This takes values "buy",
         "sell" or None.
     """
-    # OLD: cur_price, prev_price, prev_rsi = Strategy.calc(closes_arr)
     should_sell = Strategy.should_sell(closes_arr[-120:],
                                         cur_trading_sess.in_long_position)
     should_buy = Strategy.should_buy(closes_arr[-120:],
                                         cur_trading_sess.in_long_position)
 
-    should_trigger_stop_loss = (closes_arr[-1] <= (1 - STOP_LOSS_THRESHOLD)*cur_trading_sess.last_buy_price)
+    # Checking if the price has gone below (or is at) the stop loss threshold.
+    # Again, this is a trailing stop loss, so we compare with the maximum price
+    # achieved since buying
+    should_trigger_stop_loss = (closes_arr[-1] <= (1 - STOP_LOSS_THRESHOLD)*cur_trading_sess.max_price_since_buy)
 
     order_executed_type = None
 
@@ -165,13 +174,19 @@ def consider_trade(closes_arr: np.ndarray) -> str:
             ", should_sell:", should_sell,
             ", should_buy:", should_buy,
             ", should_trigger_stop_loss:", should_trigger_stop_loss,
-            ", in_long_position:", cur_trading_sess.in_long_position)
+            ", in_long_position:", cur_trading_sess.in_long_position,
+            ", max_price_since_buy:", cur_trading_sess.max_price_since_buy)
 
+    # Deciding whether to sell
     if should_sell or (should_trigger_stop_loss and cur_trading_sess.in_long_position):
         print("Attempting to sell" + should_trigger_stop_loss*" (stop loss executed)")
         order_succeeded = order(TRADE_SYMBOL, enums.SIDE_SELL,
                                 enums.ORDER_TYPE_MARKET, TRADE_QUANTITY,
                                 closes_arr)
+        
+        # Resetting for next time a buy order is executed
+        cur_trading_sess.max_price_since_buy = 0
+
         if should_trigger_stop_loss:
             cur_trading_sess.last_position_stop_triggered = cur_trading_sess.cur_closes_dict_len
 
@@ -179,6 +194,7 @@ def consider_trade(closes_arr: np.ndarray) -> str:
             cur_trading_sess.in_long_position = False
             order_executed_type = "sell"
 
+    # Otherwise, deciding whether to buy
     elif should_buy\
         and (cur_trading_sess.cur_closes_dict_len >=
                 cur_trading_sess.last_position_stop_triggered + STOP_LOSS_COOL_DOWN_MINS):
@@ -189,7 +205,7 @@ def consider_trade(closes_arr: np.ndarray) -> str:
                                 closes_arr)
         
         if order_succeeded:
-            cur_trading_sess.last_buy_price = closes_arr[-1]
+            cur_trading_sess.max_price_since_buy = closes_arr[-1]
             cur_trading_sess.in_long_position = True
             order_executed_type = "buy"
     
@@ -223,6 +239,9 @@ def order(symbol: str, side: str, order_type: str,
     """
     order_was_successful = False
     
+    # Using a number of try-except statements, as there are a number of issues
+    # that can occur when trying to execute an order, which are otherwise
+    # handled by the websocket without displaying any feedback.
     try:
         print("Sending order")
         order = client.create_order(symbol=symbol,
@@ -233,7 +252,7 @@ def order(symbol: str, side: str, order_type: str,
 
         order_was_successful = True
 
-        # Executed price and quantity, for logs
+        # Fetching executed price and quantity, for logs
         try:
             actual_price = order['fills'][0]['price']
             actual_quantity = order['fills'][0]['qty']
@@ -244,7 +263,7 @@ def order(symbol: str, side: str, order_type: str,
             commission = ""
             print("Error getting order details:", e)
 
-        # Balances of both assets traded, for logs
+        # Fetching balances of both assets traded, for logs
         try:
             balance_1 = float(client.get_asset_balance(asset=ASSET_1)['free'])
             usd_price_1 = float(client.get_avg_price(symbol=f'{ASSET_1}USDT')['price'])
@@ -258,7 +277,7 @@ def order(symbol: str, side: str, order_type: str,
             balance_1 = ""
             balance_2 = ""
             balance_usd = ""
-            print("Error saving balances to logs:", e)
+            print("Error getting balances:", e)
 
         col_names = ["collection_started_datetime",
                         "order_placed_datetime",
