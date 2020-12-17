@@ -26,7 +26,7 @@ STOP_LOSS_THRESHOLD = 0.5/100
 STOP_LOSS_COOL_DOWN_MINS = 5
 
 # Strategy used to decide when to trade
-Strategy = BasicLSTM("../models/LSTM/model_save", 0.1)
+Strategy = BasicLSTM("../models/LSTM/model_save", 0.1, 1)
 
 # Other constants
 TRADE_SYMBOL = ASSET_1 + ASSET_2

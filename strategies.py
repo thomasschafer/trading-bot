@@ -111,10 +111,11 @@ class BasicLSTM(StrategyInterface):
         instance, if this is set to be 1 then a trade will only be made if the
         predicted price is at least 1% higher (or lower) than the current price
     """
-    def __init__(self, model_path: str,
-                    percent_change_trade_threshold: float = 1) -> None:
+    def __init__(self, model_path: str,                    percent_buy_threshold: float = 1,
+                    percent_sell_threshold: float = 1) -> None:
         self.model = self.load_keras_model(model_path)
-        self.change_trade_threshold = percent_change_trade_threshold/100
+        self.buy_threshold = percent_buy_threshold/100
+        self.sell_threshold = percent_sell_threshold/100
 
     def load_keras_model(self, model_path: str) -> Sequential:
         """Loads pre-trained keras model
@@ -126,9 +127,8 @@ class BasicLSTM(StrategyInterface):
         """Predicts the price 30 mins in the future, using the pre-loaded
         Keras LSTM
         """
-        # Formatting array of closing prices in order to make prediction
+        # Normalising array of closing prices in order to make prediction
         closing_prices = np.array(closes_arr)[-120:].copy()
-
         closing_prices_mean = closing_prices.mean()
         closing_prices_norm = closing_prices/closing_prices_mean
 
@@ -149,7 +149,7 @@ class BasicLSTM(StrategyInterface):
         if in_long_position and len(closes_arr) >= 120:
             prediction = self.predict_30_min_price(closes_arr)
             cur_price = closes_arr[-1]
-            if ((prediction <= cur_price*(1-self.change_trade_threshold))\
+            if ((prediction <= cur_price*(1-self.sell_threshold))\
                 and (closes_arr[-1] < closes_arr[-2])):
                 return True
         return False
@@ -163,7 +163,7 @@ class BasicLSTM(StrategyInterface):
         if (not in_long_position) and len(closes_arr) >= 120:
             prediction = self.predict_30_min_price(closes_arr)
             cur_price = closes_arr[-1]
-            if ((prediction >= cur_price*(1+self.change_trade_threshold))\
+            if ((prediction >= cur_price*(1+self.buy_threshold))\
                 and (closes_arr[-1] > closes_arr[-2])):
                 return True
         return False
