@@ -27,6 +27,7 @@ STOP_LOSS_COOL_DOWN_MINS = 5
 
 # Strategy used to decide when to trade
 Strategy = BasicLSTM("../models/LSTM/model_save", 0.1, 1)
+MAX_MINS_OF_PRICES_HELD_IN_MEMORY = Strategy.MAX_MINS_OF_PRICES_HELD_IN_MEMORY
 
 # Other constants
 TRADE_SYMBOL = ASSET_1 + ASSET_2
@@ -79,20 +80,35 @@ def on_message_helper(message: str) -> None:
     """
     message_dict = json.loads(message)
 
-    ticker = message_dict['s']
-
+    # Pull out the timestamp, and round it down to the nearest minute
     unix_ts = int(message_dict['E'])/1000
-    ts = datetime.utcfromtimestamp(unix_ts).strftime('%Y-%m-%d %H:%M:%S')
+    cur_ts = datetime.utcfromtimestamp(unix_ts).strftime('%Y-%m-%d %H:%M:%S')
+    cur_ts = cur_ts[:-3]
+    
+    # The first condition checks whether the previous minute candle has closed.
+    # The second condition ensures that this first condition will not be
+    # triggered by accident, when we first begin trading and there will not be
+    # a valid previous timestamp.
+    if (cur_ts != cur_trading_sess.prev_ts) and (cur_trading_sess.prev_price != -1):
+        cur_trading_sess.prev_ts = cur_ts
 
-    close_price = float(message_dict['k']['c'])
+        # Updates the list of closing prices, only keeping the most recent two
+        # hours of data
+        prev_candle_close = cur_trading_sess.prev_price
+        cur_trading_sess.closes_list.append(prev_candle_close)
+        cur_trading_sess.closes_list = cur_trading_sess.closes_list[-MAX_MINS_OF_PRICES_HELD_IN_MEMORY:]
 
-    cur_trading_sess.closes_dict[ts[:-3]] = close_price
-
-    print(f"{ticker} price at {ts}: {close_price}")
-
-    if len(cur_trading_sess.closes_dict) > cur_trading_sess.cur_closes_dict_len:
-        closes_arr = np.array(list(cur_trading_sess.closes_dict.values())[:-1])
+        closes_arr = np.array(cur_trading_sess.closes_list)
         on_candle_close(closes_arr)
+
+    # Displays ticker information and new closing price
+    ticker = message_dict['s']
+    close_price = float(message_dict['k']['c'])
+    print(f"{ticker} price at {cur_ts}: {close_price}")
+
+    # Updates the previous price attribute
+    cur_trading_sess.prev_price = close_price
+    
 
 
 def on_candle_close(closes_arr: np.ndarray) -> None:
@@ -110,15 +126,10 @@ def on_candle_close(closes_arr: np.ndarray) -> None:
     -------
     None
     """
-    cur_trading_sess.cur_closes_dict_len = len(cur_trading_sess.closes_dict)
 
     print("\nClosing prices:", closes_arr, "\n")
 
-    # Note that we need to ensure we are not considering the most recent price,
-    # as this will be the beginning of the next candle - we must look at the
-    # previous price. Hence below we check if there are at least two prices
-    # saved.
-    if cur_trading_sess.cur_closes_dict_len >= 2:
+    if len(closes_arr) >= 2:
 
         # Updating the trailing stop loss if necessary
         if cur_trading_sess.in_long_position:
@@ -129,10 +140,10 @@ def on_candle_close(closes_arr: np.ndarray) -> None:
 
         col_names = ["datetime_collected", "datetime", "price", "trade_made"]
         row = [START_DATETIME,
-                    list(cur_trading_sess.closes_dict.keys())[-2],
-                    list(cur_trading_sess.closes_dict.values())[-2],
-                    trade_executed
-                    ]
+               cur_trading_sess.prev_price,
+               cur_trading_sess.prev_ts,
+               trade_executed
+              ]
 
         append_data(f"../Trading CSVs/{TRADE_SYMBOL}_data.csv", col_names, row)
 
@@ -153,9 +164,9 @@ def consider_trade(closes_arr: np.ndarray) -> str:
         The type of order that was executed, if any. This takes values "buy",
         "sell" or None.
     """
-    should_sell = Strategy.should_sell(closes_arr[-120:],
+    should_sell = Strategy.should_sell(closes_arr,
                                         cur_trading_sess.in_long_position)
-    should_buy = Strategy.should_buy(closes_arr[-120:],
+    should_buy = Strategy.should_buy(closes_arr,
                                         cur_trading_sess.in_long_position)
 
     # Checking if the price has gone below (or is at) the stop loss threshold.
@@ -167,6 +178,7 @@ def consider_trade(closes_arr: np.ndarray) -> str:
 
     # For debugging purposes
     cur_price, prev_price = closes_arr[-1], closes_arr[-2]
+    # Can be modified if using an RSI-based strategy
     prev_rsi = 0
     print("Considering trade: cur_price:", cur_price,
             ", prev_price:", prev_price,

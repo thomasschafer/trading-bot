@@ -34,6 +34,7 @@ class BasicRSI(StrategyInterface):
         self.RSI_PERIOD = RSI_PERIOD
         self.RSI_OVERBOUGHT = RSI_OVERBOUGHT
         self.RSI_OVERSOLD = RSI_OVERSOLD
+        self.MAX_MINS_OF_PRICES_HELD_IN_MEMORY = RSI_PERIOD + 2
     
     def calc(self, closes_arr: np.ndarray) -> bool:
         """Calculate and returns the current RSI
@@ -106,16 +107,22 @@ class BasicLSTM(StrategyInterface):
     ----------
     model : Sequential
         The pre-trained Keras model used to predict prices
-    percent_change_trade_threshold : float
-        The minimum predicted percent change required to make a trade. For
-        instance, if this is set to be 1 then a trade will only be made if the
-        predicted price is at least 1% higher (or lower) than the current price
+    buy_threshold : float
+        The minimum predicted percent change required to buy. For instance,
+        if this is set to be 1 then a trade will only be made if the predicted
+        price is at least 1% higher than the current price
+    sell_threshold : float
+        The same as buy_threshold, but for selling rather than buying, e.g.
+        when set to 1 this will mean a trade can only be made when the
+        predicted price is at least 1% below the current price. Note that this
+        should be positive., as with the buy_threshold
     """
-    def __init__(self, model_path: str,                    percent_buy_threshold: float = 1,
+    def __init__(self, model_path: str, percent_buy_threshold: float = 1,
                     percent_sell_threshold: float = 1) -> None:
         self.model = self.load_keras_model(model_path)
         self.buy_threshold = percent_buy_threshold/100
         self.sell_threshold = percent_sell_threshold/100
+        self.MAX_MINS_OF_PRICES_HELD_IN_MEMORY = 120
 
     def load_keras_model(self, model_path: str) -> Sequential:
         """Loads pre-trained keras model

@@ -1,4 +1,5 @@
 __pycache__/
+.ipynb_checkpoints/
 .vscode
 backtesting.ipynb
-.ipynb_checkpoints/
+LSTM_model_train.ipynb

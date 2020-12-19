@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Any, Tuple, Dict
+from typing import List, Any, Tuple
 
 def append_data(csv_path: str, col_names: List[Any], row: List[Any]) -> None:
     """Function used to add data to a CSV. Either appends to a CSV if the file
@@ -40,14 +40,6 @@ class CurrentTradingSession():
         self.in_long_position = False
         self.max_price_since_buy = 0
         self.last_position_stop_triggered = -1000
-        self.closes_dict = {}
-        self.cur_closes_dict_len = len(self.closes_dict)
-
-    def trading_results(self) -> Tuple[bool, float, float, Dict[str, float], int]:
-        """Returns all current attributes of the object.
-        """
-        return (self.in_long_position,
-                self.max_price_since_buy,
-                self.last_position_stop_triggered,
-                self.closes_dict,
-                self.cur_closes_dict_len)
+        self.closes_list = []
+        self.prev_ts = ""
+        self.prev_price = -1
