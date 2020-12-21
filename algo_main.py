@@ -140,8 +140,8 @@ def on_candle_close(closes_arr: np.ndarray) -> None:
 
         col_names = ["datetime_collected", "datetime", "price", "trade_made"]
         row = [START_DATETIME,
-               cur_trading_sess.prev_price,
                cur_trading_sess.prev_ts,
+               cur_trading_sess.prev_price,
                trade_executed
               ]
 
