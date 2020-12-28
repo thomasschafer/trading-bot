@@ -101,7 +101,7 @@ class BasicLSTM(StrategyInterface):
     if the predicted price is sufficiently high above the current price, the
     price is increasing and an open position is not currently being held. The
     strategy sells if the predicted price is sufficiently low below the current
-    price, the price is decreasing and no position is currently held.
+    price, the price is decreasing and a position is being held.
 
     Attributes
     ----------

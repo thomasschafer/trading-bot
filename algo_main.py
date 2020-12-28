@@ -27,7 +27,6 @@ STOP_LOSS_COOL_DOWN_MINS = 5
 
 # Strategy used to decide when to trade
 Strategy = BasicLSTM("../models/LSTM/model_save", 0.1, 1)
-MAX_MINS_OF_PRICES_HELD_IN_MEMORY = Strategy.MAX_MINS_OF_PRICES_HELD_IN_MEMORY
 
 # Other constants
 TRADE_SYMBOL = ASSET_1 + ASSET_2
@@ -92,11 +91,11 @@ def on_message_helper(message: str) -> None:
     if (cur_ts != cur_trading_sess.prev_ts) and (cur_trading_sess.prev_price != -1):
         cur_trading_sess.prev_ts = cur_ts
 
-        # Updates the list of closing prices, only keeping the most recent two
-        # hours of data
+        # Updates the list of closing prices, only keeping the most recent data
+        # as required by the strategy chosen
         prev_candle_close = cur_trading_sess.prev_price
         cur_trading_sess.closes_list.append(prev_candle_close)
-        cur_trading_sess.closes_list = cur_trading_sess.closes_list[-MAX_MINS_OF_PRICES_HELD_IN_MEMORY:]
+        cur_trading_sess.closes_list = cur_trading_sess.closes_list[-Strategy.MAX_MINS_OF_PRICES_HELD_IN_MEMORY:]
 
         closes_arr = np.array(cur_trading_sess.closes_list)
         on_candle_close(closes_arr)
