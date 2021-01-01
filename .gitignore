@@ -1,5 +1,6 @@
 __pycache__/
 .ipynb_checkpoints/
 .vscode
+.DS_Store
 backtesting.ipynb
 notebooks/.ipynb_checkpoints
