@@ -1,8 +1,8 @@
 # Trading bot
 
-This project is an automated trading system that trades cryptocurrencies on the Binance exchange. By default it trades **BTCUSDT**, but all pairs on the exchange can be traded.
+This project is an automated trading system that trades cryptocurrencies on the Binance exchange. By default it trades **BTC/USDT**, but all pairs on the exchange can be traded.
 
-The project contains a number of pre-built trading strategies, located inside **`strategies.py`**. The default strategy uses an LSTM neural network, which has been trained on all available 1-minute BTCUSDT data from Binance (around 3 years worth in total). 
+The project contains a number of pre-built trading strategies, located inside **`strategies.py`**. The default strategy uses an LSTM neural network, which has been trained on all available 1-minute BTC/USDT data from Binance (around 3 years worth in total). 
 
 Prices and executed trades are visualised in an automatically updating chart, allowing for easy monitoring of positions. Minute by minute candle data is continually appended to a CSV for analysis, alongside a log of trades and account balances to track profitability.
 
@@ -27,7 +27,7 @@ This location can of course be modified in **`trading_bot_main.py`**. Ensure tha
 
 ## Usage
 
-Run **`trading_bot_main.py`** to begin trading. Ensure that **TRADE_QUANTITY** is modified to be the amount you would like to trade: this must be at least 0.001 when trading **BTCUSDT**.
+Run **`trading_bot_main.py`** to begin trading. Ensure that **TRADE_QUANTITY** is modified to be the amount you would like to trade: this must be at least 0.001 when trading **BTC/USDT**.
 
 Running **`visualise.py`** will create an automatically updating chart that displays the price movements since the bot began running, as well green dots for points at which a buy order was executed and red dots to indicate executed sell orders. Note that this uses **matplotlib.animation.FuncAnimation** which is a little temperamental about the IDEs it  works well with - I found issues running this in VSCode, but no problems using IDLE.
 
