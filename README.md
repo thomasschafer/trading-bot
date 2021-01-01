@@ -1,6 +1,6 @@
 # Trading bot
 
-This project is an automated trading system that trades cryptocurrencies on the Binance exchange. By default it trades **BTC/USDT**, but all pairs on the exchange can be traded.
+This project is an automated trading system that trades cryptocurrencies on the Binance exchange. By default it trades **BTC/USDT**, but any other pairs on the exchange can be traded.
 
 The project contains a number of pre-built trading strategies, located inside **`strategies.py`**. The default strategy uses an LSTM neural network, which has been trained on all available 1-minute BTC/USDT data from Binance (around 3 years worth in total). 
 
