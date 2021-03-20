@@ -23,15 +23,15 @@ By default, the script looks for Binance API keys saved in a folder called **`co
 {"api_key": "INSERT API KEY HERE", "api_secret": "INSERT API SECRET HERE"}
 ```
 
-This location can of course be modified in **`trading_bot_main.py`**. Ensure that these keys remain secure as they permit access to all funds on the account.
+This location can of course be modified in **`trading_bot.py`**. Ensure that these keys remain secure as they permit access to all funds on the account.
 
 ## Usage
 
-Run **`trading_bot_main.py`** to begin trading. Ensure that **TRADE_QUANTITY** is modified to be the amount you would like to trade: this must be at least 0.001 when trading **BTC/USDT**.
+Run **`trading_bot.py`** to begin trading. Ensure that **TRADE_QUANTITY** is modified to be the amount you would like to trade: this must be at least 0.001 when trading **BTC/USDT**.
 
 Running **`visualise.py`** will create an automatically updating chart that displays the price movements since the bot began running, adding green dots for points at which buy orders were executed and red dots for executed sell orders. Note that this uses **matplotlib.animation.FuncAnimation** which is a little temperamental about the IDEs it  works well with - I found issues running this in VSCode, but no problems using IDLE.
 
-The strategies used for trading are defined as classes in **`strategies.py`**, and can be easily extended when new ideas are developed. Once a new strategy class is defined, simply modify the initialisation of the **Strategy** object in **`trading_bot_main.py`**.
+The strategies used for trading are defined as classes in **`strategies.py`**, and can be easily extended when new ideas are developed. Once a new strategy class is defined, simply modify the initialisation of the **Strategy** object in **`trading_bot.py`**.
 
 ## Disclaimer
 
